@@ -62,6 +62,42 @@ func TestNewIrmaJwtCreatorValidation(t *testing.T) {
 	_, err = NewIrmaJwtCreator("test-secrets/priv.pem", "vog_issuer", "irma-demo.pbdf.vog", 25, time.Hour, broken)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "id_card")
+
+	// BRP is optional: leaving it out is fine, a malformed value is not.
+	withoutBrp := testIdentityCredentials
+	withoutBrp.Brp = ""
+	_, err = NewIrmaJwtCreator("test-secrets/priv.pem", "vog_issuer", "irma-demo.pbdf.vog", 25, time.Hour, withoutBrp)
+	require.NoError(t, err)
+
+	malformedBrp := testIdentityCredentials
+	malformedBrp.Brp = "personalData"
+	_, err = NewIrmaJwtCreator("test-secrets/priv.pem", "vog_issuer", "irma-demo.pbdf.vog", 25, time.Hour, malformedBrp)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "brp")
+}
+
+func TestCreateDisclosureJwtWithoutBrp(t *testing.T) {
+	withoutBrp := testIdentityCredentials
+	withoutBrp.Brp = ""
+	creator, err := NewIrmaJwtCreator("test-secrets/priv.pem", "vog_issuer", "irma-demo.pbdf.vog", 25, time.Hour, withoutBrp)
+	require.NoError(t, err)
+
+	signed, err := creator.CreateDisclosureJwt()
+	require.NoError(t, err)
+	parsed, err := irma.ParseRequestorJwt("verification_request", signed)
+	require.NoError(t, err)
+	request := parsed.SessionRequest().(*irma.DisclosureRequest)
+
+	require.Len(t, request.Disclose, 1)
+	require.Len(t, request.Disclose[0], 3, "only the three document credentials are offered")
+	require.Equal(t, "irma-demo.pbdf.passport.firstName", request.Disclose[0][0][0].Type.String())
+	require.Equal(t, "irma-demo.pbdf.idcard.lastName", request.Disclose[0][1][1].Type.String())
+	require.Equal(t, "irma-demo.pbdf.drivinglicence.dateOfBirth", request.Disclose[0][2][2].Type.String())
+	for _, con := range request.Disclose[0] {
+		for _, a := range con {
+			require.NotContains(t, a.Type.String(), "gemeente", "no BRP attribute may be requested")
+		}
+	}
 }
 
 func TestCreateDisclosureJwt(t *testing.T) {
@@ -145,4 +181,10 @@ func TestIdentityCredentialsSourceOf(t *testing.T) {
 	require.Equal(t, SourceIdCard, testIdentityCredentials.SourceOf("irma-demo.pbdf.idcard"))
 	require.Equal(t, SourceDrivingLicence, testIdentityCredentials.SourceOf("irma-demo.pbdf.drivinglicence"))
 	require.Equal(t, "", testIdentityCredentials.SourceOf("irma-demo.pbdf.email"))
+
+	withoutBrp := testIdentityCredentials
+	withoutBrp.Brp = ""
+	require.Equal(t, "", withoutBrp.SourceOf("irma-demo.gemeente.personalData"), "BRP is not an identity source when not configured")
+	require.Equal(t, "", withoutBrp.SourceOf(""), "an empty credential id must not match the empty BRP setting")
+	require.Equal(t, SourcePassport, withoutBrp.SourceOf("irma-demo.pbdf.passport"))
 }

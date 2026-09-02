@@ -23,12 +23,16 @@ const (
 	SourceDrivingLicence = "driving_licence"
 )
 
-// IdentityCredentials holds the full credential type identifiers of the four
+// IdentityCredentials holds the full credential type identifiers of the
 // identity credentials a user may disclose, e.g.
 // "pbdf-staging.gemeente.personalData". The attribute names within each
 // credential are fixed by the Yivi scheme and hard coded below.
+//
+// The three document credentials are mandatory. BRP is optional: when it is
+// left out of the configuration the disclosure request does not offer it and a
+// disclosed BRP credential is not recognised as an identity.
 type IdentityCredentials struct {
-	Brp            string `json:"brp"`
+	Brp            string `json:"brp,omitempty"`
 	Passport       string `json:"passport"`
 	IdCard         string `json:"id_card"`
 	DrivingLicence string `json:"driving_licence"`
@@ -46,10 +50,10 @@ const (
 	DocAttrDateOfBirth = "dateOfBirth"
 )
 
-// Validate checks that all four credential identifiers are configured.
+// Validate checks that the three document credential identifiers are
+// configured and that BRP, when configured, is a full identifier too.
 func (ic IdentityCredentials) Validate() error {
 	for name, value := range map[string]string{
-		"brp":             ic.Brp,
 		"passport":        ic.Passport,
 		"id_card":         ic.IdCard,
 		"driving_licence": ic.DrivingLicence,
@@ -58,12 +62,23 @@ func (ic IdentityCredentials) Validate() error {
 			return fmt.Errorf("identity credential %s must be a full credential identifier (scheme.issuer.credential), got %q", name, value)
 		}
 	}
+	if ic.HasBrp() && strings.Count(ic.Brp, ".") != 2 {
+		return fmt.Errorf("identity credential brp must be a full credential identifier (scheme.issuer.credential) or be left out, got %q", ic.Brp)
+	}
 	return nil
+}
+
+// HasBrp reports whether a BRP credential is configured.
+func (ic IdentityCredentials) HasBrp() bool {
+	return strings.TrimSpace(ic.Brp) != ""
 }
 
 // SourceOf returns the identity source a full credential identifier belongs
 // to, or "" when it is none of the configured ones.
 func (ic IdentityCredentials) SourceOf(credential string) string {
+	if credential == "" {
+		return ""
+	}
 	switch credential {
 	case ic.Brp:
 		return SourceBrp
@@ -79,7 +94,7 @@ func (ic IdentityCredentials) SourceOf(credential string) string {
 
 type JwtCreator interface {
 	// CreateDisclosureJwt signs the request asking the user to disclose their
-	// identity from one of the four identity credentials.
+	// identity from one of the configured identity credentials.
 	CreateDisclosureJwt() (jwt string, err error)
 	// CreateIssuanceJwt signs the request issuing the VOG credential.
 	CreateIssuanceJwt(doc *vog.Document, identitySource string) (jwt string, err error)
@@ -152,35 +167,30 @@ func attr(credential, name string) irma.AttributeRequest {
 	return irma.AttributeRequest{Type: irma.NewAttributeTypeIdentifier(credential + "." + name)}
 }
 
-// createDisclosureRequest builds a condiscon with one conjunction per identity
-// source; the Yivi app lets the user pick whichever credential they hold.
+// createDisclosureRequest builds a condiscon with one conjunction per
+// configured identity source; the Yivi app lets the user pick whichever
+// credential they hold. The BRP conjunction is only offered when a BRP
+// credential is configured.
 func (jc *DefaultJwtCreator) createDisclosureRequest() *irma.DisclosureRequest {
-	request := irma.NewDisclosureRequest()
-	request.Disclose = irma.AttributeConDisCon{
-		irma.AttributeDisCon{
-			irma.AttributeCon{
-				attr(jc.identity.Brp, BrpAttrFirstNames),
-				attr(jc.identity.Brp, BrpAttrPrefix),
-				attr(jc.identity.Brp, BrpAttrFamilyName),
-				attr(jc.identity.Brp, BrpAttrDateOfBirth),
-			},
-			irma.AttributeCon{
-				attr(jc.identity.Passport, DocAttrFirstName),
-				attr(jc.identity.Passport, DocAttrLastName),
-				attr(jc.identity.Passport, DocAttrDateOfBirth),
-			},
-			irma.AttributeCon{
-				attr(jc.identity.IdCard, DocAttrFirstName),
-				attr(jc.identity.IdCard, DocAttrLastName),
-				attr(jc.identity.IdCard, DocAttrDateOfBirth),
-			},
-			irma.AttributeCon{
-				attr(jc.identity.DrivingLicence, DocAttrFirstName),
-				attr(jc.identity.DrivingLicence, DocAttrLastName),
-				attr(jc.identity.DrivingLicence, DocAttrDateOfBirth),
-			},
-		},
+	alternatives := irma.AttributeDisCon{}
+	if jc.identity.HasBrp() {
+		alternatives = append(alternatives, irma.AttributeCon{
+			attr(jc.identity.Brp, BrpAttrFirstNames),
+			attr(jc.identity.Brp, BrpAttrPrefix),
+			attr(jc.identity.Brp, BrpAttrFamilyName),
+			attr(jc.identity.Brp, BrpAttrDateOfBirth),
+		})
 	}
+	for _, document := range []string{jc.identity.Passport, jc.identity.IdCard, jc.identity.DrivingLicence} {
+		alternatives = append(alternatives, irma.AttributeCon{
+			attr(document, DocAttrFirstName),
+			attr(document, DocAttrLastName),
+			attr(document, DocAttrDateOfBirth),
+		})
+	}
+
+	request := irma.NewDisclosureRequest()
+	request.Disclose = irma.AttributeConDisCon{alternatives}
 	request.Labels = map[int]irma.TranslatedString{
 		0: {"en": "Your identity", "nl": "Je identiteit"},
 	}
