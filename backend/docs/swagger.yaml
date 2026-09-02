@@ -1,0 +1,369 @@
+basePath: /api
+definitions:
+  models.DisclosureSessionResponse:
+    properties:
+      frontendRequest:
+        description: Frontend session request (pairing options) as produced by the
+          IRMA server
+        type: object
+      sessionPtr:
+        $ref: '#/definitions/models.SessionPointer'
+    type: object
+  models.DocumentInfo:
+    properties:
+      country_of_birth:
+        example: Nederland
+        type: string
+      date_of_birth:
+        description: Date of birth, YYYY-MM-DD
+        example: "1991-05-14"
+        type: string
+      given_names:
+        example: Jan Willem
+        type: string
+      issue_date:
+        description: Issue date, YYYY-MM-DD
+        example: "2026-03-25"
+        type: string
+      place_of_birth:
+        example: Barneveld
+        type: string
+      prefix:
+        example: van
+        type: string
+      profile_codes:
+        description: Screening profile codes as printed on the VOG
+        example:
+        - "84"
+        - "85"
+        items:
+          type: string
+        type: array
+      profiles:
+        items:
+          $ref: '#/definitions/models.ProfileInfo'
+        type: array
+      purpose:
+        description: The function or purpose the VOG was requested for
+        example: Vrijwilliger bij Sportvereniging
+        type: string
+      reference_number:
+        example: "9999012026032500922"
+        type: string
+      surname:
+        example: Jansen
+        type: string
+    type: object
+  models.ErrorResponse:
+    properties:
+      error:
+        description: Stable machine readable error key, e.g. "error:validation-failed"
+        example: error:validation-failed
+        type: string
+      identity:
+        allOf:
+        - $ref: '#/definitions/models.IdentityMatchInfo'
+        description: Identity comparison outcome when the error concerns the identity
+          match
+      message:
+        description: Human readable explanation (English)
+        example: the document was rejected by the validation service
+        type: string
+      validation:
+        allOf:
+        - $ref: '#/definitions/models.ValidationInfo'
+        description: Validation outcome when the error concerns the GAAV validation
+    type: object
+  models.HealthResponse:
+    properties:
+      ok:
+        description: True if the service is healthy
+        example: true
+        type: boolean
+    type: object
+  models.IdentityMatchInfo:
+    properties:
+      date_of_birth_match:
+        example: true
+        type: boolean
+      given_names_match:
+        example: true
+        type: boolean
+      matched:
+        example: true
+        type: boolean
+      reasons:
+        example:
+        - surname differs
+        items:
+          type: string
+        type: array
+      source:
+        description: 'Which credential the identity came from: brp, passport, id_card
+          or driving_licence'
+        example: passport
+        type: string
+      surname_match:
+        example: true
+        type: boolean
+    type: object
+  models.IssuanceResponse:
+    properties:
+      identity:
+        allOf:
+        - $ref: '#/definitions/models.IdentityMatchInfo'
+        description: Outcome of the identity comparison that authorised the issuance
+      irma_server_url:
+        description: URL of the IRMA server for credential issuance
+        example: https://irma.example.com
+        type: string
+      jwt:
+        description: Signed JWT containing the IRMA issuance request
+        example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  models.ProfileInfo:
+    properties:
+      code:
+        description: Two digit code as printed on the VOG
+        example: "84"
+        type: string
+      description:
+        description: Description (Dutch)
+        example: Belast zijn met de zorg voor minderjarigen
+        type: string
+      description_en:
+        description: Description (English)
+        example: Being responsible for the care of minors
+        type: string
+      risk_area:
+        description: Risk area (Dutch)
+        example: Personen
+        type: string
+    type: object
+  models.SessionPointer:
+    properties:
+      irmaqr:
+        description: Session type
+        example: disclosing
+        type: string
+      u:
+        description: Session URL on the IRMA server
+        example: https://irma.example.com/irma/session/abc123
+        type: string
+    type: object
+  models.SessionRequest:
+    properties:
+      session_id:
+        description: Session identifier from /vog/upload
+        example: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+        type: string
+    type: object
+  models.UploadResponse:
+    properties:
+      document:
+        $ref: '#/definitions/models.DocumentInfo'
+      session_id:
+        description: Session identifier to use in the follow-up requests (32 hex characters)
+        example: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+        type: string
+      validation:
+        $ref: '#/definitions/models.ValidationInfo'
+    type: object
+  models.ValidationInfo:
+    properties:
+      authentic:
+        description: True when the document is authentic and integral
+        example: true
+        type: boolean
+      code:
+        description: Raw response code of https://validatie.nl (0 = authentic and
+          integral)
+        example: 0
+        type: integer
+      description:
+        description: Dutch description from the GAAV API specification
+        example: Document is authentiek en integer.
+        type: string
+      key:
+        description: 'Stable key for the code: authentic, known_not_integral, unknown_document,
+          validation_unavailable, provenance_error, signature_server_error, invalid_signature,
+          provenance_store_error'
+        example: authentic
+        type: string
+      retryable:
+        description: True when the failure is on the side of the validation service
+          and retrying may help
+        example: false
+        type: boolean
+    type: object
+info:
+  contact:
+    name: Privacy by Design Foundation
+  description: |-
+    API for validating a Verklaring Omtrent het Gedrag (VOG, Dutch certificate of conduct) and issuing it as a privacy-preserving Yivi credential.
+    The service validates the uploaded VOG PDF with the GAAV validation service of the Justitiële Informatiedienst (https://validatie.nl), reads the printed data, lets the holder prove their identity with a BRP, passport, ID card or driving licence credential in the Yivi app, checks that this identity matches the person named on the VOG and then issues the VOG credential (IRMA and SD-JWT VC formats) over the IRMA protocol.
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  title: Go VOG Issuer API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      description: Returns the health status of the API service
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.HealthResponse'
+      summary: Health check
+      tags:
+      - Health
+  /vog/issue:
+    post:
+      consumes:
+      - application/json
+      description: Fetches the result of the disclosure session, compares the disclosed
+        name and date of birth with the person named on the VOG and, when they match,
+        returns a signed IRMA issuance request for the VOG credential (IRMA and SD-JWT
+        VC formats, issued over the IRMA protocol). The credential carries the printed
+        data plus one yes/no attribute per function aspect of the general screening
+        profile (aspect11 ... aspect91). On a mismatch the disclosure is discarded
+        and the user may disclose again with another credential; the uploaded VOG
+        stays available until the session expires.
+      parameters:
+      - description: Session from /vog/upload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.SessionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.IssuanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: the disclosed identity does not match the VOG, or the disclosure
+            proof is invalid
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: unknown or expired session
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "409":
+          description: the disclosure session has not finished (or was not started)
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "502":
+          description: the IRMA server could not be reached
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Verify identity and issue VOG credential
+      tags:
+      - VOG
+  /vog/start-disclosure:
+    post:
+      consumes:
+      - application/json
+      description: 'Starts a Yivi disclosure session in which the holder proves their
+        identity with one of four credentials: BRP personal data (gemeente.personalData),
+        passport, ID card or driving licence. The Yivi app lets the user pick. The
+        response is the IRMA session package that yivi-frontend consumes directly
+        (use it as the response of the `session.start` request with the default mapping
+        and `result: false`). The requestor token is kept server side.'
+      parameters:
+      - description: Session from /vog/upload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.SessionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DisclosureSessionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: unknown or expired session
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "502":
+          description: the IRMA server did not accept the session
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Start identity disclosure
+      tags:
+      - VOG
+  /vog/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Accepts a VOG PDF (multipart form field "file"), checks its authenticity
+        and integrity with the GAAV validation service of the Justitiële Informatiedienst
+        (https://validatie.nl) and reads the printed data (name, date of birth, purpose
+        and screening profile codes). On success a session is created that must be
+        used to disclose the holder's identity and to obtain the credential. The session
+        expires after one hour.
+      parameters:
+      - description: The VOG PDF as received from Justis
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UploadResponse'
+        "400":
+          description: file missing, not a PDF or not a VOG
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "413":
+          description: file too large
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "422":
+          description: the validation service rejected the document (tampered, unknown
+            or invalid signature)
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "503":
+          description: the validation service is unavailable
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Upload and validate a VOG
+      tags:
+      - VOG
+swagger: "2.0"
