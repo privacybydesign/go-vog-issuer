@@ -19,7 +19,7 @@ const (
 	issueEndpoint      = "/api/vog/issue"
 )
 
-var fakePdf = []byte("%PDF-1.5 fake vog content")
+var fakePdf = []byte("%PDF-1.5 fake vog content\n%%EOF\n")
 
 func uploadOk(t *testing.T) *models.UploadResponse {
 	t.Helper()
@@ -86,6 +86,24 @@ func TestUploadRejectsBadRequests(t *testing.T) {
 
 	t.Run("not a pdf", func(t *testing.T) {
 		resp, body, errResp := postFile[models.ErrorResponse](t, url, "file", "x.txt", []byte("hello"))
+		mustStatus(t, resp, http.StatusBadRequest, body)
+		require.Equal(t, ErrorNotAPdf, errResp.Error)
+	})
+
+	t.Run("pdf header without trailer", func(t *testing.T) {
+		resp, body, errResp := postFile[models.ErrorResponse](t, url, "file", "x.pdf", []byte("%PDF-1.5\nnot really a pdf"))
+		mustStatus(t, resp, http.StatusBadRequest, body)
+		require.Equal(t, ErrorNotAPdf, errResp.Error)
+	})
+
+	t.Run("wrong extension", func(t *testing.T) {
+		resp, body, errResp := postFile[models.ErrorResponse](t, url, "file", "x.exe", []byte("%PDF-1.5\n%%EOF\n"))
+		mustStatus(t, resp, http.StatusBadRequest, body)
+		require.Equal(t, ErrorNotAPdf, errResp.Error)
+	})
+
+	t.Run("wrong content type", func(t *testing.T) {
+		resp, body, errResp := postFileWithType[models.ErrorResponse](t, url, "x.pdf", "image/png", []byte("%PDF-1.5\n%%EOF\n"))
 		mustStatus(t, resp, http.StatusBadRequest, body)
 		require.Equal(t, ErrorNotAPdf, errResp.Error)
 	})

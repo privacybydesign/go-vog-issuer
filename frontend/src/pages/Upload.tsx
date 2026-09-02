@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
 import { ApiError, uploadVog } from '../api';
+import { checkPdfFile, fileCheckErrorKey } from '../fileCheck';
 import { UploadResponse } from '../types';
+import FileDropzone from '../components/FileDropzone';
 import DocumentSummary from './DocumentSummary';
 
 export default function UploadPage() {
@@ -11,9 +13,27 @@ export default function UploadPage() {
   const navigate = useNavigate();
   const { upload, setUpload } = useAppContext();
   const [file, setFile] = useState<File | undefined>();
+  const [fileError, setFileError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [errorDetail, setErrorDetail] = useState<string | undefined>();
+
+  const select = async (picked: File | undefined) => {
+    setErrorMessage(undefined);
+    setErrorDetail(undefined);
+    setFileError(undefined);
+    if (!picked) {
+      setFile(undefined);
+      return;
+    }
+    const problem = await checkPdfFile(picked);
+    if (problem) {
+      setFile(undefined);
+      setFileError(t(fileCheckErrorKey(problem)));
+      return;
+    }
+    setFile(picked);
+  };
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,6 +64,7 @@ export default function UploadPage() {
   const reset = () => {
     setUpload(undefined);
     setFile(undefined);
+    setFileError(undefined);
     setErrorMessage(undefined);
     setErrorDetail(undefined);
   };
@@ -105,14 +126,7 @@ export default function UploadPage() {
           )}
           <p>{t('upload_explanation')}</p>
           <label htmlFor="vog-file">{t('upload_file_label')}</label>
-          <input
-            id="vog-file"
-            type="file"
-            accept="application/pdf,.pdf"
-            required
-            disabled={busy}
-            onChange={(e) => setFile(e.target.files?.[0])}
-          />
+          <FileDropzone file={file} error={fileError} disabled={busy} onSelect={select} />
         </div>
       </main>
       <footer>

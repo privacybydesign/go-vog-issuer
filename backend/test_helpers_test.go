@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"sync"
 	"testing"
 	"time"
@@ -219,6 +220,35 @@ func postFile[T any](t *testing.T, url, field, filename string, content []byte) 
 		_, err = part.Write(content)
 		require.NoError(t, err)
 	}
+	require.NoError(t, writer.Close())
+
+	resp, err := http.Post(url, writer.FormDataContentType(), &body)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var v T
+	_ = json.Unmarshal(respBody, &v)
+	return resp, respBody, &v
+}
+
+// postFileWithType uploads content as multipart field "file" with an explicit
+// part Content-Type instead of the application/octet-stream that
+// CreateFormFile sets.
+func postFileWithType[T any](t *testing.T, url, filename, contentType string, content []byte) (*http.Response, []byte, *T) {
+	t.Helper()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, filename))
+	h.Set("Content-Type", contentType)
+	part, err := writer.CreatePart(h)
+	require.NoError(t, err)
+	_, err = part.Write(content)
+	require.NoError(t, err)
 	require.NoError(t, writer.Close())
 
 	resp, err := http.Post(url, writer.FormDataContentType(), &body)

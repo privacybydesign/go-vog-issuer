@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	_ "embed"
@@ -250,7 +249,11 @@ func handleUpload(state *ServerState, w http.ResponseWriter, r *http.Request) {
 		respondWithErr(w, http.StatusRequestEntityTooLarge, ErrorFileTooLarge, "uploaded file exceeds the size limit", nil, "endpoint", endpoint)
 		return
 	}
-	if !bytes.HasPrefix(pdf, []byte("%PDF")) {
+	if !acceptableUploadMetadata(header.Filename, header.Header.Get("Content-Type")) {
+		respondWithErr(w, http.StatusBadRequest, ErrorNotAPdf, "uploaded file is not a PDF", fmt.Errorf("filename %q, content type %q", header.Filename, header.Header.Get("Content-Type")), "endpoint", endpoint)
+		return
+	}
+	if !looksLikePdf(pdf) {
 		respondWithErr(w, http.StatusBadRequest, ErrorNotAPdf, "uploaded file is not a PDF", nil, "endpoint", endpoint)
 		return
 	}

@@ -317,10 +317,226 @@ select {
 	padding: 8px;
 }
 /* VOG issuer additions */
-input[type="file"] {
-	border-bottom: none;
-	height: auto;
-	padding: 8px 0;
+
+/* --- PDF drop zone --- */
+.dropzone-wrapper {
+	margin-bottom: 16px;
+}
+
+.dropzone {
+	position: relative;
+	background: #FFFFFF;
+	border: 2px dashed #96C5E1;
+	border-radius: 12px;
+	padding: 32px 24px;
+	text-align: center;
+	color: #484747;
+	cursor: pointer;
+	transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dropzone:hover:not(.dropzone-filled):not(.dropzone-disabled),
+.dropzone-dragging {
+	border-color: #E12747;
+	background-color: #FFF5F6;
+}
+
+.dropzone-dragging {
+	box-shadow: 0 0 0 4px rgba(225, 39, 71, 0.15);
+}
+
+.dropzone-filled {
+	cursor: default;
+	border-style: solid;
+	border-color: #00973A;
+	padding: 16px;
+	text-align: left;
+}
+
+.dropzone-error {
+	border-color: #C30025;
+	border-style: solid;
+}
+
+.dropzone-disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+/* Keep the native input in the accessibility tree, but off screen. */
+.dropzone-input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	border: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.dropzone:has(.dropzone-input:focus-visible) {
+	outline: 3px solid #E12747;
+	outline-offset: 2px;
+}
+
+.dropzone-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 6px;
+}
+
+.dropzone-icon {
+	color: #484747;
+	margin-bottom: 4px;
+}
+
+.dropzone-title {
+	font-family: 'Alexandria', Verdana, Arial, sans-serif;
+	font-weight: bold;
+	font-size: 16px;
+}
+
+.dropzone-or {
+	color: #7A7979;
+	font-size: 14px;
+	line-height: 18px;
+}
+
+.dropzone-button {
+	font-family: 'Alexandria', Verdana, Arial, sans-serif;
+	font-size: 15px;
+	font-weight: bold;
+	color: #E12747;
+	background: #FFFFFF;
+	border: 2px solid #E12747;
+	border-radius: 24px;
+	padding: 0 20px;
+	height: 40px;
+	line-height: 36px;
+	cursor: pointer;
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.dropzone-button:hover:not([disabled]),
+.dropzone-button:focus-visible {
+	background: #E12747;
+	color: #FFFFFF;
+}
+
+.dropzone-button:focus-visible,
+.dropzone-remove:focus-visible,
+.dropzone-change:focus-visible {
+	outline: 3px solid #484747;
+	outline-offset: 2px;
+}
+
+.dropzone-button[disabled],
+.dropzone-remove[disabled],
+.dropzone-change[disabled] {
+	cursor: default;
+	opacity: 0.6;
+}
+
+.dropzone-file {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.dropzone-icon-small {
+	flex: none;
+	margin: 0;
+}
+
+.dropzone-file-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.dropzone-file-name {
+	font-family: 'Alexandria', Verdana, Arial, sans-serif;
+	font-weight: bold;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.dropzone-file-meta {
+	font-size: 14px;
+	line-height: 20px;
+	color: #7A7979;
+}
+
+.dropzone-file-ready {
+	color: #00973A;
+	font-weight: bold;
+}
+
+.dropzone-remove {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border: none;
+	border-radius: 50%;
+	background: #F7F5F3;
+	color: #484747;
+	cursor: pointer;
+}
+
+.dropzone-remove:hover:not([disabled]) {
+	background: #FFE3E8;
+	color: #C30025;
+}
+
+.dropzone-change {
+	display: inline-block;
+	margin-top: 8px;
+	padding: 0;
+	border: none;
+	background: none;
+	font: inherit;
+	font-size: 14px;
+	color: #E12747;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.dropzone-hint {
+	margin-top: 8px;
+	font-size: 14px;
+	line-height: 20px;
+	color: #7A7979;
+}
+
+.dropzone-message {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	margin-top: 8px;
+	padding: 12px;
+	border-radius: 6px;
+	background: #FFE3E8;
+	color: #C30025;
+	font-size: 14px;
+	line-height: 20px;
+}
+
+.dropzone-message svg {
+	flex: none;
+	margin-top: 1px;
+}
+
+@media only screen and (max-width: 640px) {
+	.dropzone {
+		padding: 24px 16px;
+	}
 }
 
 .table th {
