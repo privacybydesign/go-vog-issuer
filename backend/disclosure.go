@@ -17,9 +17,10 @@ type DisclosedIdentity struct {
 }
 
 // ExtractIdentity turns the disclosed attributes of a finished IRMA session
-// into an identity. It looks for one of the four configured identity
-// credentials and reads the name and date of birth attributes of that
-// credential. Attributes of unknown credentials are ignored.
+// into an identity. It looks for one of the configured identity credentials
+// and reads the name and date of birth attributes of that credential.
+// Attributes of unknown credentials, including a BRP credential when none is
+// configured, are ignored.
 func ExtractIdentity(disclosed [][]*irma.DisclosedAttribute, credentials IdentityCredentials) (*DisclosedIdentity, error) {
 	values := map[string]string{}  // full attribute id -> raw value
 	sources := map[string]string{} // source -> credential id

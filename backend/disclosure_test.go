@@ -16,6 +16,20 @@ func disclosedAttr(id, value string) *irma.DisclosedAttribute {
 	}
 }
 
+func TestExtractIdentityIgnoresBrpWhenNotConfigured(t *testing.T) {
+	withoutBrp := testIdentityCredentials
+	withoutBrp.Brp = ""
+	disclosed := [][]*irma.DisclosedAttribute{{
+		disclosedAttr(testIdentityCredentials.Brp+"."+BrpAttrFirstNames, "Anna Maria"),
+		disclosedAttr(testIdentityCredentials.Brp+"."+BrpAttrPrefix, "van der"),
+		disclosedAttr(testIdentityCredentials.Brp+"."+BrpAttrFamilyName, "Berg"),
+		disclosedAttr(testIdentityCredentials.Brp+"."+BrpAttrDateOfBirth, "03-02-1980"),
+	}}
+	_, err := ExtractIdentity(disclosed, withoutBrp)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no identity credential")
+}
+
 func TestExtractIdentityBrp(t *testing.T) {
 	disclosed := [][]*irma.DisclosedAttribute{{
 		disclosedAttr("irma-demo.gemeente.personalData.firstnames", "Anna Maria"),

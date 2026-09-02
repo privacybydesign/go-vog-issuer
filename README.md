@@ -117,7 +117,7 @@ Create `local-secrets/config.json` (the folder is git-ignored); `config.sample.j
 ```
 
 - `jwt_private_key_path` points to the RSA private key (PEM) that signs the session requests. The IRMA server must know the matching public key under the requestor name `issuer_id`, and that requestor must be allowed to **issue** the VOG credential and to **verify** the four identity credentials. The backend starts the disclosure session itself, so `irma_server_url` must be reachable from the backend as well as from the Yivi app.
-- `identity_credentials` are the full credential type identifiers of the four identity credentials; their attribute names (`firstnames`/`prefix`/`familyname`/`dateofbirth` for BRP, `firstName`/`lastName`/`dateOfBirth` for the documents) are fixed by the scheme.
+- `identity_credentials` are the full credential type identifiers of the identity credentials; their attribute names (`firstnames`/`prefix`/`familyname`/`dateofbirth` for BRP, `firstName`/`lastName`/`dateOfBirth` for the documents) are fixed by the scheme. `passport`, `id_card` and `driving_licence` are required. `brp` is optional: leave the key out and the disclosure request only offers the three documents, and a disclosed BRP credential is not accepted as an identity.
 - `storage_type` is `memory`, `redis` (with `redis_config`) or `redis_sentinel` (with `redis_sentinel_config`). Use Redis when running more than one instance.
 - `sd_jwt_batch_size` is the number of SD-JWT VCs issued alongside the IRMA credential.
 
