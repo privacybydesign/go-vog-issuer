@@ -25,7 +25,7 @@ i18n
                     upload_header: "Upload your VOG",
                     upload_explanation: "Select the VOG PDF you received from Justis. Only the original, digitally sealed PDF is accepted.",
                     upload_validation_explanation: "We send the PDF to validatie.nl, the validation service of the Ministry of Justice and Security, which checks that the VOG is authentic and unaltered. Only then do we read the data from it.",
-                    upload_file_label: "VOG (PDF)",
+                    upload_file_label: "VOG (PDF, max. {{max}})",
                     upload_button: "Upload and check",
                     upload_busy: "The VOG is being checked with validatie.nl...",
                     upload_service_down: "validatie.nl is currently unavailable, so the VOG could not be checked yet. This is not caused by your VOG.",
@@ -43,7 +43,6 @@ i18n
                     upload_change_file: "Choose another file",
                     upload_remove_file: "Remove file",
                     upload_file_ready: "Ready to upload",
-                    upload_file_requirements: "PDF only, at most {{max}}.",
                     file_error_not_pdf: "Only PDF files are accepted. Select the original VOG PDF you received from Justis.",
                     file_error_too_large: "This file is too large. The VOG PDF is normally a few hundred kilobytes.",
                     file_error_empty: "This file is empty.",
@@ -94,6 +93,7 @@ i18n
                     validation_invalid_signature: "The signature of the document is invalid. Contact the issuer of the document (Justis).",
                     validation_provenance_store_error: "The validation service reported an error (provenance store). Please try again later.",
                     validation_unknown_response_code: "The validation service returned an unknown response.",
+                    dialog_no_upload: "Pick a file before continuing",
                 }
             },
             nl: {
@@ -111,7 +111,7 @@ i18n
                     upload_header: "Upload je VOG",
                     upload_explanation: "Kies de VOG-PDF die je van Justis hebt ontvangen. Alleen de originele, digitaal verzegelde PDF wordt geaccepteerd.",
                     upload_validation_explanation: "We sturen de PDF naar validatie.nl, de validatiedienst van het ministerie van Justitie en Veiligheid, die controleert dat de VOG echt en ongewijzigd is. Pas daarna lezen we de gegevens uit.",
-                    upload_file_label: "VOG (PDF)",
+                    upload_file_label: "VOG (PDF, max. {{max}})",
                     upload_button: "Uploaden en controleren",
                     upload_busy: "De VOG wordt gecontroleerd bij validatie.nl...",
                     upload_service_down: "validatie.nl is op dit moment niet bereikbaar, daardoor kon de VOG nog niet worden gecontroleerd. Dit ligt niet aan je VOG.",
@@ -129,7 +129,6 @@ i18n
                     upload_change_file: "Ander bestand kiezen",
                     upload_remove_file: "Bestand verwijderen",
                     upload_file_ready: "Klaar om te uploaden",
-                    upload_file_requirements: "Alleen PDF, maximaal {{max}}.",
                     file_error_not_pdf: "Alleen PDF-bestanden worden geaccepteerd. Kies de originele VOG-PDF die je van Justis hebt ontvangen.",
                     file_error_too_large: "Dit bestand is te groot. De VOG-PDF is normaal enkele honderden kilobytes.",
                     file_error_empty: "Dit bestand is leeg.",
@@ -180,6 +179,7 @@ i18n
                     validation_invalid_signature: "De handtekening van het document is ongeldig. Neem contact op met de uitgever van het document (Justis).",
                     validation_provenance_store_error: "De validatiedienst meldt een fout (provenance store). Probeer het later opnieuw.",
                     validation_unknown_response_code: "De validatiedienst gaf een onbekend antwoord.",
+                    dialog_no_upload: "Kies een bestand voor je verder gaat",
                 }
             }
         },

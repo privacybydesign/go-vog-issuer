@@ -1,6 +1,6 @@
 import { DragEvent, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MAX_UPLOAD_BYTES, formatBytes } from '../fileCheck';
+import { formatBytes } from '../fileCheck';
 
 interface Props {
   /** The currently selected (and accepted) file, if any. */
@@ -22,7 +22,6 @@ export default function FileDropzone({ file, error, disabled, onSelect }: Props)
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const errorId = useId();
-  const hintId = useId();
 
   const openPicker = () => {
     if (!disabled) {
@@ -81,7 +80,7 @@ export default function FileDropzone({ file, error, disabled, onSelect }: Props)
           type="file"
           accept="application/pdf,.pdf"
           disabled={disabled}
-          aria-describedby={error ? `${hintId} ${errorId}` : hintId}
+          aria-describedby={error ? errorId : ""}
           aria-invalid={error ? true : undefined}
           onChange={(e) => pick(e.target.files?.[0])}
           onClick={(e) => e.stopPropagation()}
@@ -135,9 +134,6 @@ export default function FileDropzone({ file, error, disabled, onSelect }: Props)
         </button>
       )}
 
-      <div id={hintId} className="dropzone-hint">
-        {t('upload_file_requirements', { max: formatBytes(MAX_UPLOAD_BYTES) })}
-      </div>
       {error && (
         <div id={errorId} className="dropzone-message" role="alert">
           <WarningIcon />

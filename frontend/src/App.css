@@ -42,8 +42,8 @@ body {
 	margin: 0;
 	padding: 0;
 	height: 100%;
-	font-size: 16px;
-	line-height: 24px;
+	font-size: 1em;
+	line-height: 1.5em;
 	background-color: #F7F5F3;
 	font-family: 'Open Sans', Verdana, Arial, sans-serif;
 }
@@ -72,8 +72,8 @@ header h1 {
 h1 {
 	display: block;
 	margin: 0;
-	font-size: 18px;
-	line-height: 22px;
+	font-size: 1.125em;
+	line-height: 1.2em;
 	padding: 16px 0;
 	font-weight: bold;
 	font-family: 'Alexandria', Verdana, Arial, sans-serif;
@@ -110,6 +110,7 @@ h1 {
 
 .alert-info {
 	background-color: #96C5E1;
+	color: #163859;
 }
 
 .alert-danger {
@@ -117,11 +118,11 @@ h1 {
 }
 
 .alert-warning {
-	background-color: #CE5700;
+	background-color: #C45300;
 }
 
 .alert-success {
-	background-color: #00973A;
+	background-color: #008834;
 }
 
 .alert .status-action {
@@ -170,8 +171,8 @@ input {
 	border: none;
 	border-bottom: 2px solid #484747;
 	width: 100%;
-	font-size: 16px;
-	line-height: 24px;
+	font-size: 1em;
+	line-height: 1.5em;
 	background-color: transparent;
 }
 
@@ -185,23 +186,24 @@ footer .actions {
 	max-width: 600px;
 	margin: auto;
 	display: flex;
+	gap: 12px;
+	flex-direction: column;
 	justify-content: space-between;
 }
 
 footer a,
-footer button {
+footer button,
+.dropzone-button {
 	font-family: 'Alexandria', Verdana, Arial, sans-serif;
 	display: inline-block;
 	text-align: center;
-	font-size: 16px;
+	font-size: 1em;
 	font-weight: bold;
 	cursor: pointer;
 	border-radius: 6px;
 	box-sizing: border-box;
-	width: 48%;
 	height: 48px;
 	line-height: 48px;
-	max-width: 343px;
 }
 
 footer a {
@@ -211,10 +213,27 @@ footer a {
 	border: 1px solid #484747;
 }
 
-footer button {
+footer button,
+.dropzone-button {
 	border: none;
 	color: #FFFFFF;
 	background: #E12747 url('/images/button-primary.svg') no-repeat right top;
+}
+
+.dropzone-button {
+	width: auto;
+	padding-inline: 24px;
+}
+
+@media (min-width: 520px) {
+	footer .actions {
+		flex-direction: row;
+	}
+
+	footer a,
+	footer button {
+		width: 48%;
+	}
 }
 
 footer button[disabled] {
@@ -225,7 +244,7 @@ footer button[disabled] {
 	font-size: small;
 }
 .success {
-	color: #00973A;
+	color: #008834;
 	font-size: small;
 }
 .verification-code-input {
@@ -246,11 +265,11 @@ footer button[disabled] {
 }
 
 .alert-warning {
-	background-color: #CE5700;
+	background-color: #C45300;
 }
 
 .alert-success {
-	background-color: #00973A;
+	background-color: #008834;
 }
 
 .alert-success .status-container:before {
@@ -276,7 +295,7 @@ footer button[disabled] {
 	footer a,
 	footer button,
 	input {
-		font-size: 14px;
+		font-size: 0.9rem;
 	}
 }
 
@@ -307,9 +326,6 @@ footer button[disabled] {
 select {
   display: block;
   border: none;
-  border-bottom-width: medium;
-  border-bottom-style: none;
-  border-bottom-color: currentcolor;
   border-bottom: 2px solid #484747;
   background-color: transparent;
   padding: 0.5rem 0;
@@ -343,32 +359,33 @@ select {
 
 .dropzone {
 	position: relative;
-	background: #FFFFFF;
+	background: #EAF3F9;
 	border: 2px dashed #96C5E1;
 	border-radius: 12px;
 	padding: 32px 24px;
 	text-align: center;
-	color: #484747;
+	color: #163859;
 	cursor: pointer;
 	transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .dropzone:hover:not(.dropzone-filled):not(.dropzone-disabled),
 .dropzone-dragging {
-	border-color: #E12747;
-	background-color: #FFF5F6;
+	box-shadow: 0 2px 24px #DCECF5;
 }
 
 .dropzone-dragging {
-	box-shadow: 0 0 0 4px rgba(225, 39, 71, 0.15);
+	box-shadow: 0 0 0 4px #96C5E1;
+	border-style: solid;
 }
 
 .dropzone-filled {
 	cursor: default;
 	border-style: solid;
-	border-color: #00973A;
+	border-color: #008834;
 	padding: 16px;
 	text-align: left;
+	background: #FFFFFF;
 }
 
 .dropzone-error {
@@ -408,51 +425,27 @@ select {
 }
 
 .dropzone-icon {
-	color: #484747;
 	margin-bottom: 4px;
 }
 
 .dropzone-title {
 	font-family: 'Alexandria', Verdana, Arial, sans-serif;
 	font-weight: bold;
-	font-size: 16px;
+	font-size: 1em;
 }
 
 .dropzone-or {
-	color: #7A7979;
-	font-size: 14px;
-	line-height: 18px;
+	font-size: .9em;
+	line-height: 2rem;
 }
 
-.dropzone-button {
-	font-family: 'Alexandria', Verdana, Arial, sans-serif;
-	font-size: 15px;
-	font-weight: bold;
-	color: #E12747;
-	background: #FFFFFF;
-	border: 2px solid #E12747;
-	border-radius: 24px;
-	padding: 0 20px;
-	height: 40px;
-	line-height: 36px;
-	cursor: pointer;
-	transition: background-color 0.15s ease, color 0.15s ease;
-}
 
-.dropzone-button:hover:not([disabled]),
-.dropzone-button:focus-visible {
-	background: #E12747;
-	color: #FFFFFF;
-}
-
-.dropzone-button:focus-visible,
 .dropzone-remove:focus-visible,
 .dropzone-change:focus-visible {
 	outline: 3px solid #484747;
 	outline-offset: 2px;
 }
 
-.dropzone-button[disabled],
 .dropzone-remove[disabled],
 .dropzone-change[disabled] {
 	cursor: default;
@@ -484,13 +477,13 @@ select {
 }
 
 .dropzone-file-meta {
-	font-size: 14px;
-	line-height: 20px;
-	color: #7A7979;
+	font-size: .9em;
+	line-height: 1.4em;
+	color: #484747;
 }
 
 .dropzone-file-ready {
-	color: #00973A;
+	color: #008834;
 	font-weight: bold;
 }
 
@@ -520,17 +513,17 @@ select {
 	border: none;
 	background: none;
 	font: inherit;
-	font-size: 14px;
-	color: #E12747;
+	font-size: .9em;
+	color: #BA3555;
 	text-decoration: underline;
 	cursor: pointer;
 }
 
 .dropzone-hint {
 	margin-top: 8px;
-	font-size: 14px;
-	line-height: 20px;
-	color: #7A7979;
+	font-size: .9em;
+	line-height: 1.4em;
+	color: #484747;
 }
 
 .dropzone-message {
@@ -542,8 +535,8 @@ select {
 	border-radius: 6px;
 	background: #FFE3E8;
 	color: #C30025;
-	font-size: 14px;
-	line-height: 20px;
+	font-size: .9em;
+	line-height: 1.4em;
 }
 
 .dropzone-message svg {
@@ -578,4 +571,26 @@ select {
 
 ol li {
 	margin-bottom: 8px;
+}
+
+dialog {
+	border: none;
+	border-radius: 8px;
+	padding: 16px;
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+dialog::backdrop {
+	background-color: rgba(0, 0, 0, 0.3);
+}
+
+dialog p {
+	font-family: 'Alexandria', Verdana, Arial, sans-serif;
+	font-weight: bold;
+	font-size: 1.1em;
+	margin-block-start: 0;
+}
+
+dialog button {
+	width: 100%;
 }

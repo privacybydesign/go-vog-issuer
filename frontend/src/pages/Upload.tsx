@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
 import { ApiError, RetryProgress, UploadCancelled, isValidationServiceUnavailable, uploadVogWithRetry } from '../api';
-import { checkPdfFile, fileCheckErrorKey } from '../fileCheck';
+import { checkPdfFile, fileCheckErrorKey, formatBytes, MAX_UPLOAD_BYTES } from '../fileCheck';
 import FileDropzone from '../components/FileDropzone';
 import DocumentSummary from './DocumentSummary';
 
@@ -57,7 +57,12 @@ export default function UploadPage() {
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!file || busy) {
+    if (busy) {
+      return;
+    }
+    if (!file) {
+      const dialog:any = document.getElementById('no-upload');
+      dialog.showModal();
       return;
     }
     const controller = new AbortController();
@@ -97,6 +102,11 @@ export default function UploadPage() {
       setBusy(false);
     }
   };
+
+  const closeModal = () => {
+    const dialog:any = document.getElementById('no-upload');
+    dialog.close();
+  }
 
   const stopRetrying = () => {
     abortRef.current?.abort();
@@ -186,7 +196,7 @@ export default function UploadPage() {
           )}
           <p>{t('upload_explanation')}</p>
           <p>{t('upload_validation_explanation')}</p>
-          <label htmlFor="vog-file">{t('upload_file_label')}</label>
+          <label htmlFor="vog-file">{t('upload_file_label', { max: formatBytes(MAX_UPLOAD_BYTES) })}</label>
           <FileDropzone file={file} error={fileError} disabled={busy} onSelect={select} />
         </div>
       </main>
@@ -195,8 +205,12 @@ export default function UploadPage() {
           <Link to={`/${i18n.language}`} id="back-button">
             {t('back')}
           </Link>
-          <button id="submit-button" type="submit" disabled={!file || busy}>{t('upload_button')}</button>
+          <button id="submit-button" type="submit" disabled={busy}>{t('upload_button')}</button>
         </div>
+        <dialog id="no-upload">
+          <p>{t('dialog_no_upload')}</p>
+          <button onClick={closeModal}>OK</button>
+        </dialog>
       </footer>
     </form>
   );
