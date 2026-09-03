@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/textproto"
 	"strings"
@@ -130,25 +133,68 @@ type Validator interface {
 // service.
 const DefaultValidationURL = "https://validatie.nl/api/valideer/"
 
+const (
+	// DefaultTimeout bounds a single call to the validation service.
+	DefaultTimeout = 30 * time.Second
+	// DefaultMaxAttempts is the total number of calls made for one
+	// validation when the service keeps failing.
+	DefaultMaxAttempts = 3
+	// DefaultRetryDelay is the pause before the first retry.
+	DefaultRetryDelay = time.Second
+)
+
+// RetryPolicy controls how a failed call to the validation service is
+// repeated. Only failures on the side of the service are retried: the service
+// is unreachable, answers with a 5xx status or returns one of the retryable
+// response codes (3, 4, 5 and 7).
+//
+// A rejection of the document, a client error (4xx), an unparsable answer and
+// a timeout are final. The first three do not change on a retry. A service
+// that did not answer within the timeout is unlikely to do so a second time,
+// and repeating the wait would push the whole upload past the HTTP server's
+// write deadline; the frontend retries such an upload later, in view of the
+// user.
+type RetryPolicy struct {
+	// MaxAttempts is the total number of attempts, including the first one.
+	// Values below 1 mean DefaultMaxAttempts; 1 disables retrying.
+	MaxAttempts int
+	// Delay is the pause before the first retry. Every following retry waits
+	// twice as long. Values of zero or less mean DefaultRetryDelay.
+	Delay time.Duration
+}
+
+func (p RetryPolicy) withDefaults() RetryPolicy {
+	if p.MaxAttempts < 1 {
+		p.MaxAttempts = DefaultMaxAttempts
+	}
+	if p.Delay <= 0 {
+		p.Delay = DefaultRetryDelay
+	}
+	return p
+}
+
 // GaavClient validates documents through the GAAV API: a multipart POST of the
 // file to /api/valideer/ answered with {"response_code": n}.
 type GaavClient struct {
 	url    string
 	client *http.Client
+	retry  RetryPolicy
 }
 
 // NewGaavClient creates a client for the given endpoint (DefaultValidationURL
-// when empty).
-func NewGaavClient(url string, timeout time.Duration) *GaavClient {
+// when empty). The timeout bounds a single attempt (DefaultTimeout when zero);
+// retry decides how often a failing attempt is repeated.
+func NewGaavClient(url string, timeout time.Duration, retry RetryPolicy) *GaavClient {
 	if url == "" {
 		url = DefaultValidationURL
 	}
 	if timeout <= 0 {
-		timeout = 30 * time.Second
+		timeout = DefaultTimeout
 	}
 	return &GaavClient{
 		url:    url,
 		client: &http.Client{Timeout: timeout},
+		retry:  retry.withDefaults(),
 	}
 }
 
@@ -156,14 +202,79 @@ type gaavResponse struct {
 	ResponseCode *int `json:"response_code"`
 }
 
+// transientError marks a failure of the validation service itself (unreachable
+// or answering with a 5xx status) that may well succeed on a retry.
+type transientError struct {
+	err error
+}
+
+func (e *transientError) Error() string { return e.err.Error() }
+func (e *transientError) Unwrap() error { return e.err }
+
+// Transient reports whether err is a failure of the validation service that
+// may succeed on a retry, as opposed to a problem with the request or with the
+// answer.
+func Transient(err error) bool {
+	var t *transientError
+	return errors.As(err, &t)
+}
+
+func isTimeout(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
+}
+
+// shouldRetry decides whether the outcome of one attempt warrants another.
+func shouldRetry(code ValidationCode, err error) bool {
+	if err != nil {
+		return Transient(err)
+	}
+	return code.Retryable()
+}
+
 // Validate uploads the PDF and returns the validation code. A transport or
 // protocol failure is returned as an error; any well formed answer, including
-// rejections, is returned as a code.
+// rejections, is returned as a code. Failures of the service are retried
+// according to the client's RetryPolicy before the last outcome is returned.
 func (g *GaavClient) Validate(ctx context.Context, pdf []byte, filename string) (ValidationCode, error) {
 	if filename == "" {
 		filename = "document.pdf"
 	}
+	body, contentType, err := multipartBody(pdf, filename)
+	if err != nil {
+		return -1, err
+	}
 
+	delay := g.retry.Delay
+	for attempt := 1; ; attempt++ {
+		code, err := g.validateOnce(ctx, body, contentType)
+		if !shouldRetry(code, err) || attempt >= g.retry.MaxAttempts {
+			return code, err
+		}
+
+		logArgs := []any{"url", g.url, "attempt", attempt, "max_attempts", g.retry.MaxAttempts, "retry_in", delay}
+		if err != nil {
+			logArgs = append(logArgs, "error", err)
+		} else {
+			logArgs = append(logArgs, "response_code", int(code), "meaning", code.Key())
+		}
+		slog.Warn("validation service unavailable, retrying", logArgs...)
+
+		select {
+		case <-ctx.Done():
+			return code, err
+		case <-time.After(delay):
+		}
+		delay *= 2
+	}
+}
+
+// multipartBody builds the multipart/form-data body once so that every attempt
+// sends the same bytes.
+func multipartBody(pdf []byte, filename string) ([]byte, string, error) {
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	// The GAAV service goes by the declared content type of the part: with
@@ -174,31 +285,42 @@ func (g *GaavClient) Validate(ctx context.Context, pdf []byte, filename string) 
 	partHeader.Set("Content-Type", "application/pdf")
 	part, err := writer.CreatePart(partHeader)
 	if err != nil {
-		return -1, fmt.Errorf("failed to build multipart body: %w", err)
+		return nil, "", fmt.Errorf("failed to build multipart body: %w", err)
 	}
 	if _, err := part.Write(pdf); err != nil {
-		return -1, fmt.Errorf("failed to write multipart body: %w", err)
+		return nil, "", fmt.Errorf("failed to write multipart body: %w", err)
 	}
 	if err := writer.Close(); err != nil {
-		return -1, fmt.Errorf("failed to finish multipart body: %w", err)
+		return nil, "", fmt.Errorf("failed to finish multipart body: %w", err)
 	}
+	return body.Bytes(), writer.FormDataContentType(), nil
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.url, &body)
+// validateOnce performs a single call to the validation service.
+func (g *GaavClient) validateOnce(ctx context.Context, body []byte, contentType string) (ValidationCode, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, g.url, bytes.NewReader(body))
 	if err != nil {
 		return -1, fmt.Errorf("failed to create validation request: %w", err)
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := g.client.Do(req)
 	if err != nil {
-		return -1, fmt.Errorf("validation request failed: %w", err)
+		err = fmt.Errorf("validation request failed: %w", err)
+		if ctx.Err() != nil || isTimeout(err) {
+			return -1, err
+		}
+		return -1, &transientError{err}
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
 	if err != nil {
 		return -1, fmt.Errorf("failed to read validation response: %w", err)
+	}
+	if resp.StatusCode >= http.StatusInternalServerError {
+		return -1, &transientError{fmt.Errorf("validation service returned status %d: %s", resp.StatusCode, bytes.TrimSpace(respBody))}
 	}
 	if resp.StatusCode != http.StatusOK {
 		return -1, fmt.Errorf("validation service returned status %d: %s", resp.StatusCode, bytes.TrimSpace(respBody))
@@ -213,3 +335,9 @@ func (g *GaavClient) Validate(ctx context.Context, pdf []byte, filename string) 
 	}
 	return ValidationCode(*parsed.ResponseCode), nil
 }
+
+// Timeout is the bound on a single call to the validation service.
+func (g *GaavClient) Timeout() time.Duration { return g.client.Timeout }
+
+// Retry is the effective retry policy, with defaults applied.
+func (g *GaavClient) Retry() RetryPolicy { return g.retry }

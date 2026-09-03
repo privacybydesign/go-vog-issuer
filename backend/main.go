@@ -59,8 +59,15 @@ type AllCredentialConfigs struct {
 type ValidationConfig struct {
 	// Endpoint of the validation API. Defaults to https://validatie.nl/api/valideer/.
 	Url string `json:"url"`
-	// Request timeout in seconds. Defaults to 30.
+	// Timeout of a single call to the validation API in seconds. Defaults to 30.
 	TimeoutSeconds int `json:"timeout_seconds"`
+	// Total number of calls made when the validation service is unavailable
+	// (unreachable, 5xx or a retryable response code), including the first
+	// one. Defaults to 3; 1 disables retrying.
+	MaxAttempts int `json:"max_attempts"`
+	// Pause before the first retry in seconds; every following retry waits
+	// twice as long. Defaults to 1.
+	RetryDelaySeconds int `json:"retry_delay_seconds"`
 }
 
 func main() {
@@ -125,8 +132,12 @@ func main() {
 	if validationURL == "" {
 		validationURL = vog.DefaultValidationURL
 	}
-	slog.Info("using validation service", "url", validationURL)
-	validator := vog.NewGaavClient(validationURL, time.Duration(config.Validation.TimeoutSeconds)*time.Second)
+	retry := vog.RetryPolicy{
+		MaxAttempts: config.Validation.MaxAttempts,
+		Delay:       time.Duration(config.Validation.RetryDelaySeconds) * time.Second,
+	}
+	validator := vog.NewGaavClient(validationURL, time.Duration(config.Validation.TimeoutSeconds)*time.Second, retry)
+	slog.Info("using validation service", "url", validationURL, "timeout", validator.Timeout(), "max_attempts", validator.Retry().MaxAttempts, "retry_delay", validator.Retry().Delay)
 
 	serverState := ServerState{
 		irmaServerURL:       config.IrmaServerUrl,

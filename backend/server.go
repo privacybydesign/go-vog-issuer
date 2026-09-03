@@ -205,7 +205,7 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} models.ErrorResponse "file missing, not a PDF or not a VOG"
 // @Failure 413 {object} models.ErrorResponse "file too large"
 // @Failure 422 {object} models.ErrorResponse "the validation service rejected the document (tampered, unknown or invalid signature)"
-// @Failure 503 {object} models.ErrorResponse "the validation service is unavailable"
+// @Failure 503 {object} models.ErrorResponse "the validation service is unavailable; the backend already retried the call, the client may try again later"
 // @Failure 500 {object} models.ErrorResponse
 // @Router /vog/upload [post]
 func handleUpload(state *ServerState, w http.ResponseWriter, r *http.Request) {
@@ -259,11 +259,13 @@ func handleUpload(state *ServerState, w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticity and integrity first: only a genuine VOG is worth parsing.
+	// The validator retries failures of the service itself; what comes back
+	// here is the outcome after those retries.
 	code, err := state.validator.Validate(r.Context(), pdf, header.Filename)
 	if err != nil {
 		respondWithJSONErr(w, http.StatusServiceUnavailable, models.ErrorResponse{
 			Error:   ErrorValidationService,
-			Message: "the validation service could not be reached",
+			Message: "the validation service could not be reached, also not after retrying",
 		}, "validation service call failed", err, "endpoint", endpoint)
 		return
 	}

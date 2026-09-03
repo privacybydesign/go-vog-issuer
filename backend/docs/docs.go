@@ -223,7 +223,7 @@ const docTemplate = `{
                         }
                     },
                     "503": {
-                        "description": "the validation service is unavailable",
+                        "description": "the validation service is unavailable; the backend already retried the call, the client may try again later",
                         "schema": {
                             "$ref": "#/definitions/models.ErrorResponse"
                         }

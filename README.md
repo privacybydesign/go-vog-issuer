@@ -72,6 +72,13 @@ The GAAV API (`POST https://validatie.nl/api/valideer/`, multipart field `file`)
 | 6 | Handtekening is ongeldig | 422 `error:validation-failed` |
 | 7 | Provenance store gaf fouten terug | 503 `error:validation-failed` (retryable) |
 
+### Retrying when validatie.nl is unavailable
+
+Failures of the validation service are retried on two levels; a rejection of the document (codes 1, 2 and 6) is final and never retried.
+
+- **Backend.** The GAAV client repeats a call when validatie.nl is unreachable, answers with a 5xx status or returns one of the retryable codes (3, 4, 5 and 7): by default 3 attempts in total with pauses of 1 and 2 seconds (`validation.max_attempts`, `validation.retry_delay_seconds`). Every retry is logged at warning level. A call that runs into `validation.timeout_seconds` is not repeated, so an upload always finishes well within the server's 60 second write deadline; the outcome of the last attempt is what the API returns (503 `error:validation-service-unavailable` or 503 `error:validation-failed` with `retryable: true`).
+- **Frontend.** On such a 503 the upload page tells the user that validatie.nl is unavailable and that this is not caused by their VOG, shows a countdown to the next automatic attempt ("attempt 2 of 4"), and offers to stop. It retries after 5, 10 and 20 seconds and then shows a final message asking to try again in a few minutes.
+
 ## Getting started
 
 ### Prerequisites
@@ -108,7 +115,9 @@ Create `local-secrets/config.json` (the folder is git-ignored); `config.sample.j
   },
   "validation": {
     "url": "https://validatie.nl/api/valideer/",
-    "timeout_seconds": 30
+    "timeout_seconds": 30,
+    "max_attempts": 3,
+    "retry_delay_seconds": 1
   },
   "max_upload_size_bytes": 5242880,
   "storage_type": "memory",
@@ -118,6 +127,7 @@ Create `local-secrets/config.json` (the folder is git-ignored); `config.sample.j
 
 - `jwt_private_key_path` points to the RSA private key (PEM) that signs the session requests. The IRMA server must know the matching public key under the requestor name `issuer_id`, and that requestor must be allowed to **issue** the VOG credential and to **verify** the four identity credentials. The backend starts the disclosure session itself, so `irma_server_url` must be reachable from the backend as well as from the Yivi app.
 - `identity_credentials` are the full credential type identifiers of the identity credentials; their attribute names (`firstnames`/`prefix`/`familyname`/`dateofbirth` for BRP, `firstName`/`lastName`/`dateOfBirth` for the documents) are fixed by the scheme. `passport`, `id_card` and `driving_licence` are required. `brp` is optional: leave the key out and the disclosure request only offers the three documents, and a disclosed BRP credential is not accepted as an identity.
+- `validation` configures the validatie.nl client: `timeout_seconds` bounds a single call (default 30), `max_attempts` is the total number of calls made while the service is unavailable (default 3, `1` disables retrying) and `retry_delay_seconds` is the pause before the first retry, doubling on every next one (default 1). See [Retrying when validatie.nl is unavailable](#retrying-when-validatienl-is-unavailable).
 - `storage_type` is `memory`, `redis` (with `redis_config`) or `redis_sentinel` (with `redis_sentinel_config`). Use Redis when running more than one instance.
 - `sd_jwt_batch_size` is the number of SD-JWT VCs issued alongside the IRMA credential.
 
