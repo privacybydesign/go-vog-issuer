@@ -172,7 +172,8 @@ footer .actions {
 }
 
 footer a,
-footer button {
+footer button,
+.dropzone-button {
 	font-family: 'Alexandria', Verdana, Arial, sans-serif;
 	display: inline-block;
 	text-align: center;
@@ -194,10 +195,16 @@ footer a {
 	border: 1px solid #484747;
 }
 
-footer button {
+footer button,
+.dropzone-button {
 	border: none;
 	color: #FFFFFF;
 	background: #E12747 url('/images/button-primary.svg') no-repeat right top;
+}
+
+.dropzone-button {
+	width: auto;
+	padding-inline: 24px;
 }
 
 footer button[disabled] {
@@ -407,34 +414,13 @@ select {
 	line-height: 1.2rem;
 }
 
-.dropzone-button {
-	font-family: 'Alexandria', Verdana, Arial, sans-serif;
-	font-size: 1em;
-	font-weight: bold;
-	color: #E12747;
-	background: #FFFFFF;
-	border: 2px solid #E12747;
-	border-radius: 24px;
-	padding: 0 20px;
-	height: 40px;
-	cursor: pointer;
-	transition: background-color 0.15s ease, color 0.15s ease;
-}
 
-.dropzone-button:hover:not([disabled]),
-.dropzone-button:focus-visible {
-	background: #E12747;
-	color: #FFFFFF;
-}
-
-.dropzone-button:focus-visible,
 .dropzone-remove:focus-visible,
 .dropzone-change:focus-visible {
 	outline: 3px solid #484747;
 	outline-offset: 2px;
 }
 
-.dropzone-button[disabled],
 .dropzone-remove[disabled],
 .dropzone-change[disabled] {
 	cursor: default;
