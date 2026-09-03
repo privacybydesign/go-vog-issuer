@@ -557,3 +557,25 @@ select {
 ol li {
 	margin-bottom: 8px;
 }
+
+dialog {
+	border: none;
+	border-radius: 8px;
+	padding: 16px;
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+dialog::backdrop {
+	background-color: rgba(0, 0, 0, 0.3);
+}
+
+dialog p {
+	font-family: 'Alexandria', Verdana, Arial, sans-serif;
+	font-weight: bold;
+	font-size: 1.1em;
+	margin-block-start: 0;
+}
+
+dialog button {
+	width: 100%;
+}

@@ -37,7 +37,11 @@ export default function UploadPage() {
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!file || busy) {
+    if (busy) {
+      return;
+    }
+    if (!file) {
+      document.getElementById('no-upload').showModal();
       return;
     }
     setBusy(true);
@@ -60,6 +64,10 @@ export default function UploadPage() {
       setBusy(false);
     }
   };
+
+  const closeModal = () => {
+    document.getElementById('no-upload').close();
+  }
 
   const reset = () => {
     setUpload(undefined);
@@ -134,8 +142,12 @@ export default function UploadPage() {
           <Link to={`/${i18n.language}`} id="back-button">
             {t('back')}
           </Link>
-          <button id="submit-button" type="submit" disabled={!file || busy}>{t('upload_button')}</button>
+          <button id="submit-button" type="submit" disabled={busy}>{t('upload_button')}</button>
         </div>
+        <dialog id="no-upload">
+          <p>{t('dialog_no_upload')}</p>
+          <button commandfor="no-upload" command="close" onClick={closeModal}>OK</button>
+        </dialog>
       </footer>
     </form>
   );

@@ -87,6 +87,7 @@ i18n
                     validation_invalid_signature: "The signature of the document is invalid. Contact the issuer of the document (Justis).",
                     validation_provenance_store_error: "The validation service reported an error (provenance store). Please try again later.",
                     validation_unknown_response_code: "The validation service returned an unknown response.",
+                    dialog_no_upload: "Pick a file before continuing",
                 }
             },
             nl: {
@@ -166,6 +167,7 @@ i18n
                     validation_invalid_signature: "De handtekening van het document is ongeldig. Neem contact op met de uitgever van het document (Justis).",
                     validation_provenance_store_error: "De validatiedienst meldt een fout (provenance store). Probeer het later opnieuw.",
                     validation_unknown_response_code: "De validatiedienst gaf een onbekend antwoord.",
+                    dialog_no_upload: "Kies een bestand voor je verder gaat",
                 }
             }
         },
