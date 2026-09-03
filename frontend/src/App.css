@@ -124,6 +124,24 @@ h1 {
 	background-color: #00973A;
 }
 
+.alert .status-action {
+	display: inline-block;
+	margin-top: 8px;
+	padding: 0;
+	border: none;
+	background: none;
+	font: inherit;
+	font-weight: bold;
+	color: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.alert .status-action:focus-visible {
+	outline: 3px solid #FFFFFF;
+	outline-offset: 2px;
+}
+
 .alert-success .status-container:before {
 	font-family: 'IrmaIcons';
 	font-size: 24px;

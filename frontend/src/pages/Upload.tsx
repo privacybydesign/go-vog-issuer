@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
-import { ApiError, uploadVog } from '../api';
+import { ApiError, RetryProgress, UploadCancelled, isValidationServiceUnavailable, uploadVogWithRetry } from '../api';
 import { checkPdfFile, fileCheckErrorKey } from '../fileCheck';
-import { UploadResponse } from '../types';
 import FileDropzone from '../components/FileDropzone';
 import DocumentSummary from './DocumentSummary';
+
+/** A pending automatic retry: which attempt is next and when it starts. */
+interface PendingRetry extends RetryProgress {
+  retryAt: number;
+}
 
 export default function UploadPage() {
   const { t, i18n } = useTranslation();
@@ -15,8 +19,24 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | undefined>();
   const [fileError, setFileError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  const [retry, setRetry] = useState<PendingRetry | undefined>();
+  const [now, setNow] = useState(() => Date.now());
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [errorDetail, setErrorDetail] = useState<string | undefined>();
+  const abortRef = useRef<AbortController | undefined>(undefined);
+
+  // Tick while a retry is pending so the countdown stays current.
+  useEffect(() => {
+    if (!retry) {
+      return;
+    }
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, [retry]);
+
+  // Leaving the page cancels any upload or retry still in progress.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const select = async (picked: File | undefined) => {
     setErrorMessage(undefined);
@@ -40,15 +60,28 @@ export default function UploadPage() {
     if (!file || busy) {
       return;
     }
+    const controller = new AbortController();
+    abortRef.current = controller;
     setBusy(true);
+    setRetry(undefined);
     setErrorMessage(undefined);
     setErrorDetail(undefined);
     try {
-      const response = await uploadVog(file);
-      const result: UploadResponse = await response.json();
+      const result = await uploadVogWithRetry(file, {
+        signal: controller.signal,
+        onRetry: (progress) => setRetry({ ...progress, retryAt: Date.now() + progress.delayMs }),
+      });
       setUpload(result);
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof UploadCancelled) {
+        return;
+      }
+      if (isValidationServiceUnavailable(err)) {
+        setErrorMessage(t('upload_retry_failed'));
+        if (err.body.validation) {
+          setErrorDetail(t(`validation_${err.body.validation.key}`));
+        }
+      } else if (err instanceof ApiError) {
         setErrorMessage(t(err.translationKey));
         if (err.body.validation) {
           setErrorDetail(t(`validation_${err.body.validation.key}`));
@@ -57,8 +90,16 @@ export default function UploadPage() {
         navigate(`/${i18n.language}/error`);
       }
     } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = undefined;
+      }
+      setRetry(undefined);
       setBusy(false);
     }
+  };
+
+  const stopRetrying = () => {
+    abortRef.current?.abort();
   };
 
   const reset = () => {
@@ -100,6 +141,8 @@ export default function UploadPage() {
     );
   }
 
+  const secondsLeft = retry ? Math.max(0, Math.ceil((retry.retryAt - now) / 1000)) : 0;
+
   return (
     <form id="container" onSubmit={submit}>
       <header>
@@ -117,14 +160,32 @@ export default function UploadPage() {
               </div>
             </div>
           )}
-          {busy && (
+          {busy && !retry && (
             <div id="status-bar" className="alert alert-info" role="status">
               <div className="status-container">
                 <div id="status">{t('upload_busy')}</div>
               </div>
             </div>
           )}
+          {busy && retry && (
+            <div id="status-bar" className="alert alert-warning" role="status" aria-live="polite">
+              <div className="status-container">
+                <div id="status">
+                  <div>{t('upload_service_down')}</div>
+                  <div>
+                    {secondsLeft > 0
+                      ? t('upload_retrying_in', { seconds: secondsLeft, attempt: retry.attempt, max: retry.maxAttempts })
+                      : t('upload_retrying_now', { attempt: retry.attempt, max: retry.maxAttempts })}
+                  </div>
+                  <button type="button" className="status-action" onClick={stopRetrying}>
+                    {t('upload_retry_stop')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <p>{t('upload_explanation')}</p>
+          <p>{t('upload_validation_explanation')}</p>
           <label htmlFor="vog-file">{t('upload_file_label')}</label>
           <FileDropzone file={file} error={fileError} disabled={busy} onSelect={select} />
         </div>
