@@ -61,7 +61,8 @@ export default function UploadPage() {
       return;
     }
     if (!file) {
-      document.getElementById('no-upload').showModal();
+      const dialog:any = document.getElementById('no-upload');
+      dialog.showModal();
       return;
     }
     const controller = new AbortController();
@@ -103,7 +104,8 @@ export default function UploadPage() {
   };
 
   const closeModal = () => {
-    document.getElementById('no-upload').close();
+    const dialog:any = document.getElementById('no-upload');
+    dialog.close();
   }
 
   const stopRetrying = () => {
@@ -207,7 +209,7 @@ export default function UploadPage() {
         </div>
         <dialog id="no-upload">
           <p>{t('dialog_no_upload')}</p>
-          <button commandfor="no-upload" command="close" onClick={closeModal}>OK</button>
+          <button onClick={closeModal}>OK</button>
         </dialog>
       </footer>
     </form>
