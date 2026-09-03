@@ -168,6 +168,8 @@ footer .actions {
 	max-width: 600px;
 	margin: auto;
 	display: flex;
+	gap: 12px;
+	flex-direction: column;
 	justify-content: space-between;
 }
 
@@ -182,10 +184,8 @@ footer button,
 	cursor: pointer;
 	border-radius: 6px;
 	box-sizing: border-box;
-	width: 48%;
 	height: 48px;
 	line-height: 48px;
-	max-width: 343px;
 }
 
 footer a {
@@ -205,6 +205,17 @@ footer button,
 .dropzone-button {
 	width: auto;
 	padding-inline: 24px;
+}
+
+@media (min-width: 520px) {
+	footer .actions {
+		flex-direction: row;
+	}
+
+	footer a,
+	footer button {
+		width: 48%;
+	}
 }
 
 footer button[disabled] {
