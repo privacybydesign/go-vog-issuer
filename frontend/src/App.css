@@ -110,6 +110,7 @@ h1 {
 
 .alert-info {
 	background-color: #96C5E1;
+	color: #212B33;
 }
 
 .alert-danger {
@@ -117,11 +118,11 @@ h1 {
 }
 
 .alert-warning {
-	background-color: #CE5700;
+	background-color: #C45300;
 }
 
 .alert-success {
-	background-color: #00973A;
+	background-color: #008834;
 }
 
 .alert-success .status-container:before {
@@ -207,7 +208,7 @@ footer button[disabled] {
 	font-size: small;
 }
 .success {
-	color: #00973A;
+	color: #008834;
 	font-size: small;
 }
 .verification-code-input {
@@ -228,11 +229,11 @@ footer button[disabled] {
 }
 
 .alert-warning {
-	background-color: #CE5700;
+	background-color: #C45300;
 }
 
 .alert-success {
-	background-color: #00973A;
+	background-color: #008834;
 }
 
 .alert-success .status-container:before {
@@ -348,7 +349,7 @@ select {
 .dropzone-filled {
 	cursor: default;
 	border-style: solid;
-	border-color: #00973A;
+	border-color: #008834;
 	padding: 16px;
 	text-align: left;
 }
@@ -471,7 +472,7 @@ select {
 }
 
 .dropzone-file-ready {
-	color: #00973A;
+	color: #008834;
 	font-weight: bold;
 }
 
@@ -502,7 +503,7 @@ select {
 	background: none;
 	font: inherit;
 	font-size: .9em;
-	color: #E12747;
+	color: #BA3555;
 	text-decoration: underline;
 	cursor: pointer;
 }
