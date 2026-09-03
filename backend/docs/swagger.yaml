@@ -360,7 +360,8 @@ paths:
           schema:
             $ref: '#/definitions/models.ErrorResponse'
         "503":
-          description: the validation service is unavailable
+          description: the validation service is unavailable; the backend already
+            retried the call, the client may try again later
           schema:
             $ref: '#/definitions/models.ErrorResponse'
       summary: Upload and validate a VOG

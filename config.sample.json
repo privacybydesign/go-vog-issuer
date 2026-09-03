@@ -22,7 +22,9 @@
   },
   "validation": {
     "url": "https://validatie.nl/api/valideer/",
-    "timeout_seconds": 30
+    "timeout_seconds": 30,
+    "max_attempts": 3,
+    "retry_delay_seconds": 1
   },
   "max_upload_size_bytes": 5242880,
   "storage_type": "memory",
