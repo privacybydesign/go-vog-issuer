@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
 import { ApiError, RetryProgress, UploadCancelled, isValidationServiceUnavailable, uploadVogWithRetry } from '../api';
-import { checkPdfFile, fileCheckErrorKey, MAX_UPLOAD_BYTES } from '../fileCheck';
+import { checkPdfFile, fileCheckErrorKey, formatBytes, MAX_UPLOAD_BYTES } from '../fileCheck';
 import FileDropzone from '../components/FileDropzone';
 import DocumentSummary from './DocumentSummary';
 
@@ -193,9 +193,8 @@ export default function UploadPage() {
             </div>
           )}
           <p>{t('upload_explanation')}</p>
-          <label htmlFor="vog-file">{t('upload_file_label', { max: formatBytes(MAX_UPLOAD_BYTES) })}</label>
           <p>{t('upload_validation_explanation')}</p>
-          <label htmlFor="vog-file">{t('upload_file_label')}</label>
+          <label htmlFor="vog-file">{t('upload_file_label', { max: formatBytes(MAX_UPLOAD_BYTES) })}</label>
           <FileDropzone file={file} error={fileError} disabled={busy} onSelect={select} />
         </div>
       </main>
