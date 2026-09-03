@@ -110,7 +110,7 @@ h1 {
 
 .alert-info {
 	background-color: #96C5E1;
-	color: #212B33;
+	color: #163859;
 }
 
 .alert-danger {
@@ -333,24 +333,24 @@ select {
 
 .dropzone {
 	position: relative;
-	background: #FFFFFF;
+	background: #EAF3F9;
 	border: 2px dashed #96C5E1;
 	border-radius: 12px;
 	padding: 32px 24px;
 	text-align: center;
-	color: #484747;
+	color: #163859;
 	cursor: pointer;
 	transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .dropzone:hover:not(.dropzone-filled):not(.dropzone-disabled),
 .dropzone-dragging {
-	border-color: #E12747;
-	background-color: #FFF5F6;
+	box-shadow: 0 2px 24px #DCECF5;
 }
 
 .dropzone-dragging {
-	box-shadow: 0 0 0 4px rgba(225, 39, 71, 0.15);
+	box-shadow: 0 0 0 4px #96C5E1;
+	border-style: solid;
 }
 
 .dropzone-filled {
@@ -359,6 +359,7 @@ select {
 	border-color: #008834;
 	padding: 16px;
 	text-align: left;
+	background: #FFFFFF;
 }
 
 .dropzone-error {
@@ -398,7 +399,6 @@ select {
 }
 
 .dropzone-icon {
-	color: #484747;
 	margin-bottom: 4px;
 }
 
@@ -409,9 +409,8 @@ select {
 }
 
 .dropzone-or {
-	color: #484747;
 	font-size: .9em;
-	line-height: 1.2rem;
+	line-height: 2rem;
 }
 
 
