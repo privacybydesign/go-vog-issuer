@@ -1,6 +1,6 @@
 import { DragEvent, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MAX_UPLOAD_BYTES, formatBytes } from '../fileCheck';
+import { formatBytes } from '../fileCheck';
 
 interface Props {
   /** The currently selected (and accepted) file, if any. */
@@ -22,7 +22,6 @@ export default function FileDropzone({ file, error, disabled, onSelect }: Props)
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const errorId = useId();
-  const hintId = useId();
 
   const openPicker = () => {
     if (!disabled) {
