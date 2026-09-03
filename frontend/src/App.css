@@ -42,8 +42,8 @@ body {
 	margin: 0;
 	padding: 0;
 	height: 100%;
-	font-size: 16px;
-	line-height: 24px;
+	font-size: 1em;
+	line-height: 1.5em;
 	background-color: #F7F5F3;
 	font-family: 'Open Sans', Verdana, Arial, sans-serif;
 }
@@ -72,8 +72,8 @@ header h1 {
 h1 {
 	display: block;
 	margin: 0;
-	font-size: 18px;
-	line-height: 22px;
+	font-size: 1.125em;
+	line-height: 1.2em;
 	padding: 16px 0;
 	font-weight: bold;
 	font-family: 'Alexandria', Verdana, Arial, sans-serif;
@@ -152,8 +152,8 @@ input {
 	border: none;
 	border-bottom: 2px solid #484747;
 	width: 100%;
-	font-size: 16px;
-	line-height: 24px;
+	font-size: 1em;
+	line-height: 1.5em;
 	background-color: transparent;
 }
 
@@ -175,7 +175,7 @@ footer button {
 	font-family: 'Alexandria', Verdana, Arial, sans-serif;
 	display: inline-block;
 	text-align: center;
-	font-size: 16px;
+	font-size: 1em;
 	font-weight: bold;
 	cursor: pointer;
 	border-radius: 6px;
@@ -258,7 +258,7 @@ footer button[disabled] {
 	footer a,
 	footer button,
 	input {
-		font-size: 14px;
+		font-size: 0.9rem;
 	}
 }
 
@@ -397,18 +397,18 @@ select {
 .dropzone-title {
 	font-family: 'Alexandria', Verdana, Arial, sans-serif;
 	font-weight: bold;
-	font-size: 16px;
+	font-size: 1em;
 }
 
 .dropzone-or {
-	font-size: 14px;
-	line-height: 18px;
 	color: #484747;
+	font-size: .9em;
+	line-height: 1.2rem;
 }
 
 .dropzone-button {
 	font-family: 'Alexandria', Verdana, Arial, sans-serif;
-	font-size: 15px;
+	font-size: 1em;
 	font-weight: bold;
 	color: #E12747;
 	background: #FFFFFF;
@@ -416,7 +416,6 @@ select {
 	border-radius: 24px;
 	padding: 0 20px;
 	height: 40px;
-	line-height: 36px;
 	cursor: pointer;
 	transition: background-color 0.15s ease, color 0.15s ease;
 }
@@ -466,8 +465,8 @@ select {
 }
 
 .dropzone-file-meta {
-	font-size: 14px;
-	line-height: 20px;
+	font-size: .9em;
+	line-height: 1.4em;
 	color: #484747;
 }
 
@@ -502,7 +501,7 @@ select {
 	border: none;
 	background: none;
 	font: inherit;
-	font-size: 14px;
+	font-size: .9em;
 	color: #E12747;
 	text-decoration: underline;
 	cursor: pointer;
@@ -510,8 +509,8 @@ select {
 
 .dropzone-hint {
 	margin-top: 8px;
-	font-size: 14px;
-	line-height: 20px;
+	font-size: .9em;
+	line-height: 1.4em;
 	color: #484747;
 }
 
@@ -524,8 +523,8 @@ select {
 	border-radius: 6px;
 	background: #FFE3E8;
 	color: #C30025;
-	font-size: 14px;
-	line-height: 20px;
+	font-size: .9em;
+	line-height: 1.4em;
 }
 
 .dropzone-message svg {
