@@ -308,9 +308,6 @@ footer button[disabled] {
 select {
   display: block;
   border: none;
-  border-bottom-width: medium;
-  border-bottom-style: none;
-  border-bottom-color: currentcolor;
   border-bottom: 2px solid #484747;
   background-color: transparent;
   padding: 0.5rem 0;
