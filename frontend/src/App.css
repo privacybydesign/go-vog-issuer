@@ -401,9 +401,9 @@ select {
 }
 
 .dropzone-or {
-	color: #7A7979;
 	font-size: 14px;
 	line-height: 18px;
+	color: #484747;
 }
 
 .dropzone-button {
@@ -468,7 +468,7 @@ select {
 .dropzone-file-meta {
 	font-size: 14px;
 	line-height: 20px;
-	color: #7A7979;
+	color: #484747;
 }
 
 .dropzone-file-ready {
@@ -512,7 +512,7 @@ select {
 	margin-top: 8px;
 	font-size: 14px;
 	line-height: 20px;
-	color: #7A7979;
+	color: #484747;
 }
 
 .dropzone-message {
