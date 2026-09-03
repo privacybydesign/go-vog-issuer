@@ -6,6 +6,7 @@ import { AppProvider } from './AppContext';
 import IndexPage from './pages/Index';
 import UploadPage from './pages/Upload';
 import VerifyPage from './pages/Verify';
+import ResultPage from './pages/Result';
 import DonePage from './pages/Done';
 import ErrorPage from './pages/Error';
 
@@ -27,6 +28,7 @@ function LanguageRouter() {
       <Route path="/" element={<IndexPage />} />
       <Route path="/upload" element={<UploadPage />} />
       <Route path="/verify" element={<VerifyPage />} />
+      <Route path="/result" element={<ResultPage />} />
       <Route path="/done" element={<DonePage />} />
       <Route path="/error" element={<ErrorPage />} />
     </Routes>

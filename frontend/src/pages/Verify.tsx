@@ -3,18 +3,17 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
 import { ApiError, issueVog } from '../api';
-import { IdentityMatchInfo, IssuanceResponse } from '../types';
+import { IssuanceResponse } from '../types';
 import { fullName } from './DocumentSummary';
 
-type Phase = 'idle' | 'disclosing' | 'matching' | 'issuing';
+type Phase = 'idle' | 'disclosing' | 'matching';
 
 export default function VerifyPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { upload, setUpload } = useAppContext();
+  const { upload, setUpload, setOutcome } = useAppContext();
   const [phase, setPhase] = useState<Phase>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const [mismatch, setMismatch] = useState<IdentityMatchInfo | undefined>();
 
   // Without an uploaded VOG there is nothing to verify against.
   useEffect(() => {
@@ -32,7 +31,8 @@ export default function VerifyPage() {
   const handleApiError = (err: unknown) => {
     if (err instanceof ApiError) {
       if (err.body.error === 'error:identity-mismatch' && err.body.identity) {
-        setMismatch(err.body.identity);
+        setOutcome({ matched: false, identity: err.body.identity });
+        navigate(`/${i18n.language}/result`);
         return;
       }
       if (err.body.error === 'error:unknown-session') {
@@ -46,42 +46,19 @@ export default function VerifyPage() {
     navigate(`/${i18n.language}/error`);
   };
 
-  // Step 2: the disclosure finished; ask the backend to compare and issue.
-  const matchAndIssue = async () => {
+  // Step 2: the disclosure finished; ask the backend to compare the identity
+  // with the VOG. Both outcomes are shown on the result page; on a match that
+  // page also offers to add the VOG to the Yivi app.
+  const matchIdentity = async () => {
     setPhase('matching');
     try {
       const response = await issueVog(sessionId);
       const result: IssuanceResponse = await response.json();
-      await startIssuance(result);
+      setOutcome({ matched: true, issuance: result });
+      navigate(`/${i18n.language}/result`);
     } catch (err) {
       setPhase('idle');
       handleApiError(err);
-    }
-  };
-
-  // Step 3: hand the signed issuance request to the Yivi app.
-  const startIssuance = async (result: IssuanceResponse) => {
-    setPhase('issuing');
-    const yivi = await import('@privacybydesign/yivi-frontend');
-    const issuance = yivi.newPopup({
-      language: i18n.language as 'en' | 'nl',
-      session: {
-        url: result.irma_server_url,
-        start: {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: result.jwt,
-        },
-        result: false,
-      },
-    });
-    try {
-      await issuance.start();
-      setUpload(undefined);
-      navigate(`/${i18n.language}/done`);
-    } catch (e) {
-      setPhase('idle');
-      setErrorMessage(e === 'Aborted' ? t('verify_cancelled') : t('issue_error'));
     }
   };
 
@@ -90,7 +67,7 @@ export default function VerifyPage() {
   // session pointer through yivi-frontend's default mapping.
   const startDisclosure = async () => {
     setErrorMessage(undefined);
-    setMismatch(undefined);
+    setOutcome(undefined);
     setPhase('disclosing');
     const yivi = await import('@privacybydesign/yivi-frontend');
     const disclosure = yivi.newPopup({
@@ -118,7 +95,7 @@ export default function VerifyPage() {
       }
       return;
     }
-    await matchAndIssue();
+    await matchIdentity();
   };
 
   const busy = phase !== 'idle';
@@ -137,31 +114,10 @@ export default function VerifyPage() {
               </div>
             </div>
           )}
-          {mismatch && (
-            <div id="status-bar" className="alert alert-danger" role="alert">
-              <div className="status-container">
-                <div id="status">
-                  <b>{t('mismatch_header')}</b>
-                  <ul className="mismatch-list">
-                    {!mismatch.date_of_birth_match && <li>{t('mismatch_date_of_birth')}</li>}
-                    {!mismatch.surname_match && <li>{t('mismatch_surname')}</li>}
-                    {!mismatch.given_names_match && <li>{t('mismatch_given_names')}</li>}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
           {phase === 'matching' && (
             <div id="status-bar" className="alert alert-info" role="status">
               <div className="status-container">
                 <div id="status">{t('verify_busy')}</div>
-              </div>
-            </div>
-          )}
-          {phase === 'issuing' && (
-            <div id="status-bar" className="alert alert-success" role="status">
-              <div className="status-container">
-                <div id="status">{t('verify_match')}</div>
               </div>
             </div>
           )}
@@ -186,7 +142,7 @@ export default function VerifyPage() {
             {t('back')}
           </Link>
           <button id="submit-button" type="button" disabled={busy} onClick={startDisclosure}>
-            {mismatch ? t('verify_retry') : t('verify_start')}
+            {t('verify_start')}
           </button>
         </div>
       </footer>

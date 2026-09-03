@@ -1,8 +1,18 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { useAppContext } from '../AppContext';
 
 export default function DonePage() {
   const { t, i18n } = useTranslation();
+  const { setUpload, setOutcome } = useAppContext();
+
+  // The credential is in the app: the flow is over, forget the VOG and the
+  // (already used) issuance request.
+  useEffect(() => {
+    setUpload(undefined);
+    setOutcome(undefined);
+  }, [setUpload, setOutcome]);
 
   return (
     <div id="container">
