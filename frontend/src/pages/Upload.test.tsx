@@ -45,7 +45,7 @@ async function renderAndSubmit() {
       </MemoryRouter>
     </AppProvider>,
   );
-  fireEvent.change(screen.getByLabelText('VOG (PDF)'), { target: { files: [pdf] } });
+  fireEvent.change(screen.getByLabelText(/^VOG \(PDF/), { target: { files: [pdf] } });
   const submit = screen.getByRole('button', { name: 'Uploaden en controleren' });
   await waitFor(() => expect(submit).toBeEnabled());
   fireEvent.click(submit);

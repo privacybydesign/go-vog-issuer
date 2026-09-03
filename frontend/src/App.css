@@ -594,3 +594,10 @@ dialog p {
 dialog button {
 	width: 100%;
 }
+h2 {
+	margin: 24px 0 8px;
+	font-size: 1em;
+	line-height: 1.2em;
+	font-weight: bold;
+	font-family: 'Alexandria', Verdana, Arial, sans-serif;
+}

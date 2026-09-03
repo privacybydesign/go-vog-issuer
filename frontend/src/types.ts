@@ -48,6 +48,15 @@ export interface IssuanceResponse {
   identity: IdentityMatchInfo;
 }
 
+/**
+ * Outcome of comparing the disclosed identity with the VOG. On a match the
+ * backend has already consumed the session and handed out the signed issuance
+ * request, so it must travel with the outcome to the result page.
+ */
+export type MatchOutcome =
+  | { matched: true; issuance: IssuanceResponse }
+  | { matched: false; identity: IdentityMatchInfo };
+
 export interface ErrorResponse {
   error: string;
   message?: string;

@@ -7,7 +7,7 @@ The Go VOG Issuer turns a **Verklaring Omtrent het Gedrag** (VOG, the Dutch cert
 1. **Upload.** The holder uploads the digital VOG PDF received from Justis. The backend sends it to the GAAV validation service of the Justitiële Informatiedienst ([validatie.nl](https://validatie.nl)) which confirms that the PDF is authentic and unaltered. Only then is the PDF parsed: reference number, issue date, name, date and place of birth, purpose and the screening profile codes are read from the (AES encrypted) PDF with PDFium running in WebAssembly, so the backend is pure Go.
 2. **Identity.** The holder proves who they are in the Yivi app. The disclosure request offers four alternatives, the app lets the user pick: BRP personal data (`gemeente.personalData`), passport, ID card or driving licence. The backend runs this session itself so it can read the result.
 3. **Match.** The disclosed name and date of birth are compared with the person named on the VOG (case- and diacritic-insensitive, prefix with or without, first given name suffices). No match, no credential; the holder may disclose again with another credential.
-4. **Issue.** On a match the backend signs an IRMA issuance request for the VOG credential and the frontend hands it to the Yivi app.
+4. **Issue.** On a match the backend signs an IRMA issuance request for the VOG credential. The frontend shows the result of the identity check, explains that the VOG can now be added to the Yivi app as a card and hands the request to the app when the holder asks for it.
 
 The uploaded PDF and the parsed data live in the session store for at most one hour and are removed as soon as the credential is issued.
 
