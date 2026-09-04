@@ -358,3 +358,39 @@ func TestIssueWithBrpDisclosure(t *testing.T) {
 	require.Equal(t, SourceBrp, issuance.Identity.Source)
 	require.Equal(t, SourceBrp, deps.jwt.issuedSource)
 }
+
+func TestUploadRateLimited(t *testing.T) {
+	config := testConfig
+	config.RateLimit = RateLimitConfig{RequestsPerSecond: 1, Burst: 2}
+	startTestServerWithConfig(t, defaultDeps(), config)
+	url := fmt.Sprintf(testHost, uploadEndpoint)
+
+	for i := 0; i < 2; i++ {
+		resp, body, _ := postFile[models.UploadResponse](t, url, "file", "vog.pdf", fakePdf)
+		mustStatus(t, resp, http.StatusOK, body)
+	}
+
+	resp, body, errResp := postFile[models.ErrorResponse](t, url, "file", "vog.pdf", fakePdf)
+	mustStatus(t, resp, http.StatusTooManyRequests, body)
+	require.Equal(t, ErrorRateLimited, errResp.Error)
+}
+
+func TestSecurityHeadersOnApiAndSpa(t *testing.T) {
+	startTestServer(t, defaultDeps())
+
+	apiResp, err := http.Get(fmt.Sprintf(testHost, "/api/health"))
+	require.NoError(t, err)
+	defer func() { _ = apiResp.Body.Close() }()
+	require.Equal(t, "nosniff", apiResp.Header.Get("X-Content-Type-Options"))
+	require.Equal(t, "strict-origin-when-cross-origin", apiResp.Header.Get("Referrer-Policy"))
+	require.NotEmpty(t, apiResp.Header.Get("Content-Security-Policy"))
+
+	// Same middleware wraps the SPA fallback route, regardless of whether the
+	// frontend build is present (it isn't in this test binary).
+	spaResp, err := http.Get(fmt.Sprintf(testHost, "/"))
+	require.NoError(t, err)
+	defer func() { _ = spaResp.Body.Close() }()
+	require.Equal(t, "nosniff", spaResp.Header.Get("X-Content-Type-Options"))
+	require.Equal(t, "strict-origin-when-cross-origin", spaResp.Header.Get("Referrer-Policy"))
+	require.NotEmpty(t, spaResp.Header.Get("Content-Security-Policy"))
+}

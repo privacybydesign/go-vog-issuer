@@ -37,8 +37,10 @@ const (
 	ErrorFileTooLarge      = "error:file-too-large"
 	ErrorNotAPdf           = "error:not-a-pdf"
 	ErrorNotAVog           = "error:not-a-vog"
+	ErrorParseTimeout      = "error:parse-timeout"
 	ErrorValidationFailed  = "error:validation-failed"
 	ErrorValidationService = "error:validation-service-unavailable"
+	ErrorRateLimited       = "error:rate-limited"
 	ErrorUnknownSession    = "error:unknown-session"
 	ErrorDisclosureNotDone = "error:disclosure-not-done"
 	ErrorDisclosureInvalid = "error:disclosure-invalid"
@@ -57,6 +59,9 @@ type ServerConfig struct {
 	// Serve the API documentation on /api/docs and /api/docs/swagger.yaml.
 	// Disabled unless explicitly enabled, so the docs stay off in production.
 	EnableApiDocs bool `json:"enable_api_docs,omitempty"`
+	// Bounds requests per client IP to the upload/start-disclosure/issue
+	// endpoints. Zero fields fall back to sane defaults.
+	RateLimit RateLimitConfig `json:"rate_limit,omitempty"`
 }
 
 type ServerState struct {
@@ -140,29 +145,36 @@ func NewServer(state *ServerState, config ServerConfig) (*Server, error) {
 	}
 	router := mux.NewRouter()
 
-	router.HandleFunc("/api/health", handleHealth).Methods(http.MethodGet)
+	// CSP is scoped to same-origin resources plus the IRMA server the
+	// frontend talks to directly while polling a disclosure session; it is
+	// left off the (opt-in, non-production) API docs below, which load a
+	// third-party script the policy would otherwise block.
+	csp := buildContentSecurityPolicy(state.irmaServerURL)
+	limiter := newIPRateLimiter(config.RateLimit)
 
-	router.HandleFunc("/api/vog/upload", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api/health", securityHeaders(csp, handleHealth)).Methods(http.MethodGet)
+
+	router.HandleFunc("/api/vog/upload", securityHeaders(csp, rateLimited(limiter, "vog/upload", func(w http.ResponseWriter, r *http.Request) {
 		handleUpload(state, w, r)
-	})
-	router.HandleFunc("/api/vog/start-disclosure", func(w http.ResponseWriter, r *http.Request) {
+	})))
+	router.HandleFunc("/api/vog/start-disclosure", securityHeaders(csp, rateLimited(limiter, "vog/start-disclosure", func(w http.ResponseWriter, r *http.Request) {
 		handleStartDisclosure(state, w, r)
-	})
-	router.HandleFunc("/api/vog/issue", func(w http.ResponseWriter, r *http.Request) {
+	})))
+	router.HandleFunc("/api/vog/issue", securityHeaders(csp, rateLimited(limiter, "vog/issue", func(w http.ResponseWriter, r *http.Request) {
 		handleIssue(state, w, r)
-	})
+	})))
 
 	// API Documentation
 	if config.EnableApiDocs {
-		router.HandleFunc("/api/docs", HandleRedocRequest).Methods(http.MethodGet)
-		router.HandleFunc("/api/docs/swagger.yaml", HandleSwaggerRequest).Methods(http.MethodGet)
+		router.HandleFunc("/api/docs", securityHeaders("", HandleRedocRequest)).Methods(http.MethodGet)
+		router.HandleFunc("/api/docs/swagger.yaml", securityHeaders("", HandleSwaggerRequest)).Methods(http.MethodGet)
 		slog.Info("API documentation enabled", "path", "/api/docs")
 	} else {
 		slog.Info("API documentation disabled")
 	}
 
 	spa := SpaHandler{staticPath: "../frontend/build", indexPath: "index.html"}
-	router.PathPrefix("/").Handler(spa)
+	router.PathPrefix("/").Handler(securityHeaders(csp, spa.ServeHTTP))
 
 	addr := fmt.Sprintf("%v:%v", config.Host, config.Port)
 	srv := &http.Server{
@@ -205,7 +217,8 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} models.ErrorResponse "file missing, not a PDF or not a VOG"
 // @Failure 413 {object} models.ErrorResponse "file too large"
 // @Failure 422 {object} models.ErrorResponse "the validation service rejected the document (tampered, unknown or invalid signature)"
-// @Failure 503 {object} models.ErrorResponse "the validation service is unavailable; the backend already retried the call, the client may try again later"
+// @Failure 429 {object} models.ErrorResponse "rate limit exceeded for this client"
+// @Failure 503 {object} models.ErrorResponse "the validation service is unavailable, or parsing the PDF timed out; the client may try again later"
 // @Failure 500 {object} models.ErrorResponse
 // @Router /vog/upload [post]
 func handleUpload(state *ServerState, w http.ResponseWriter, r *http.Request) {
@@ -289,6 +302,10 @@ func handleUpload(state *ServerState, w http.ResponseWriter, r *http.Request) {
 			respondWithErr(w, http.StatusBadRequest, ErrorNotAVog, "uploaded document is not a VOG", err, "endpoint", endpoint)
 			return
 		}
+		if errors.Is(err, vog.ErrParseTimeout) {
+			respondWithErr(w, http.StatusServiceUnavailable, ErrorParseTimeout, "pdf parsing timed out", err, "endpoint", endpoint)
+			return
+		}
 		respondWithErr(w, http.StatusInternalServerError, ErrorInternal, "failed to parse VOG", err, "endpoint", endpoint)
 		return
 	}
@@ -332,6 +349,7 @@ func handleUpload(state *ServerState, w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} models.DisclosureSessionResponse
 // @Failure 400 {object} models.ErrorResponse
 // @Failure 404 {object} models.ErrorResponse "unknown or expired session"
+// @Failure 429 {object} models.ErrorResponse "rate limit exceeded for this client"
 // @Failure 502 {object} models.ErrorResponse "the IRMA server did not accept the session"
 // @Failure 500 {object} models.ErrorResponse
 // @Router /vog/start-disclosure [post]
@@ -399,6 +417,7 @@ func handleStartDisclosure(state *ServerState, w http.ResponseWriter, r *http.Re
 // @Failure 403 {object} models.ErrorResponse "the disclosed identity does not match the VOG, or the disclosure proof is invalid"
 // @Failure 404 {object} models.ErrorResponse "unknown or expired session"
 // @Failure 409 {object} models.ErrorResponse "the disclosure session has not finished (or was not started)"
+// @Failure 429 {object} models.ErrorResponse "rate limit exceeded for this client"
 // @Failure 502 {object} models.ErrorResponse "the IRMA server could not be reached"
 // @Failure 500 {object} models.ErrorResponse
 // @Router /vog/issue [post]

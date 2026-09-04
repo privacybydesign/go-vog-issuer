@@ -144,6 +144,11 @@ func defaultDeps() *testDeps {
 
 func startTestServer(t *testing.T, deps *testDeps) *Server {
 	t.Helper()
+	return startTestServerWithConfig(t, deps, testConfig)
+}
+
+func startTestServerWithConfig(t *testing.T, deps *testDeps, config ServerConfig) *Server {
+	t.Helper()
 
 	state := &ServerState{
 		irmaServerURL:       "https://irma.example",
@@ -156,7 +161,7 @@ func startTestServer(t *testing.T, deps *testDeps) *Server {
 		maxUploadSize:       1 << 20,
 	}
 
-	srv, err := NewServer(state, testConfig)
+	srv, err := NewServer(state, config)
 	require.NoError(t, err)
 
 	go func() {

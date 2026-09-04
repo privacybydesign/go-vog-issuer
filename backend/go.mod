@@ -3,6 +3,7 @@ module go-vog-issuer
 go 1.27
 
 require (
+	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/klippa-app/go-pdfium v1.19.8
@@ -10,7 +11,9 @@ require (
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/stretchr/testify v1.12.0
 	github.com/swaggo/swag v1.16.6
+	github.com/tetratelabs/wazero v1.12.0
 	golang.org/x/text v0.41.0
+	golang.org/x/time v0.15.0
 )
 
 require (
@@ -78,11 +81,11 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/templexxx/cpu v0.0.9 // indirect
 	github.com/templexxx/xorsimd v0.4.1 // indirect
-	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/timshannon/bolthold v0.0.0-20210913165410-232392fc8a6a // indirect
 	github.com/valyala/fastjson v1.6.10 // indirect
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.etcd.io/bbolt v1.4.3 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/crypto v0.55.0 // indirect
