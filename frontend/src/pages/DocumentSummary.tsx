@@ -7,6 +7,12 @@ export function fullName(document: DocumentInfo): string {
     .join(' ');
 }
 
+/** Renders a backend YYYY-MM-DD date as DD-MM-YYYY, regardless of viewer locale. */
+export function formatDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-');
+  return `${day}-${month}-${year}`;
+}
+
 export default function DocumentSummary({ document }: { document: DocumentInfo }) {
   const { t, i18n } = useTranslation();
   const english = i18n.language.startsWith('en');
@@ -28,7 +34,7 @@ export default function DocumentSummary({ document }: { document: DocumentInfo }
         </tr>
         <tr>
           <th>{t('field_date_of_birth')}</th>
-          <td>{document.date_of_birth}</td>
+          <td>{formatDate(document.date_of_birth)}</td>
         </tr>
         <tr>
           <th>{t('field_place_of_birth')}</th>

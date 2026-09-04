@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
 import { IdentityMatchInfo, IssuanceResponse } from '../types';
-import { fullName } from './DocumentSummary';
+import { formatDate, fullName } from './DocumentSummary';
 
 /** Translation key for the credential the identity was disclosed with. */
 export function identitySourceKey(source: string): string {
@@ -48,7 +48,7 @@ export default function ResultPage() {
         </tr>
         <tr>
           <th>{t('field_date_of_birth')}</th>
-          <td>{upload.document.date_of_birth}</td>
+          <td>{formatDate(upload.document.date_of_birth)}</td>
         </tr>
         <tr>
           <th>{t('field_identity_source')}</th>

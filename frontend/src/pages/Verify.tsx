@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
 import { ApiError, issueVog } from '../api';
 import { IssuanceResponse } from '../types';
-import { fullName } from './DocumentSummary';
+import { formatDate, fullName } from './DocumentSummary';
 
 type Phase = 'idle' | 'disclosing' | 'matching';
 
@@ -130,7 +130,7 @@ export default function VerifyPage() {
               </tr>
               <tr>
                 <th>{t('field_date_of_birth')}</th>
-                <td>{upload.document.date_of_birth}</td>
+                <td>{formatDate(upload.document.date_of_birth)}</td>
               </tr>
             </tbody>
           </table>
