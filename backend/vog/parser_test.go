@@ -66,6 +66,27 @@ func TestParseRejectsNonPdf(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotAVog)
 }
 
+// TestParseTimeoutKillsWorkerAndPoolRecovers guards against a slow/malicious
+// PDF tying up a PDFium worker forever: with the deadline forced well below
+// what parsing takes, Parse must give up with ErrParseTimeout, and the pool
+// must still be able to serve a normal request afterwards (i.e. the stalled
+// worker was killed and replaced, not left wedged).
+func TestParseTimeoutKillsWorkerAndPoolRecovers(t *testing.T) {
+	original := sharedParser.parseTimeout
+	t.Cleanup(func() { sharedParser.parseTimeout = original })
+
+	pdf := readTestPdf(t, "vog-9999012026032500922.pdf")
+
+	sharedParser.parseTimeout = time.Nanosecond
+	_, err := sharedParser.Parse(pdf)
+	require.ErrorIs(t, err, ErrParseTimeout)
+
+	sharedParser.parseTimeout = original
+	doc, err := sharedParser.Parse(pdf)
+	require.NoError(t, err)
+	require.Equal(t, "9999012026032500922", doc.ReferenceNumber)
+}
+
 // word builds a Word at the given position with a nominal 10pt height.
 func word(text string, left, top float64) Word {
 	return Word{Text: text, Left: left, Top: top, Right: left + float64(len(text))*5, Bottom: top - 8}
