@@ -91,10 +91,6 @@ func TestRedisSessionStorageRoundTrip(t *testing.T) {
 	require.Error(t, storage.Remove("abc"))
 }
 
-// TestRedisSessionStorageTTLTracksCreatedAt guards against the session TTL
-// being reset to a full SessionLifetime on every Store: retrying a stage
-// change (e.g. resetting a spent disclosure after a failed identity match)
-// must not let the session outlive its documented one hour limit.
 func TestRedisSessionStorageTTLTracksCreatedAt(t *testing.T) {
 	storage, mr := newTestRedisStorage(t)
 
