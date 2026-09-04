@@ -66,11 +66,6 @@ func TestParseRejectsNonPdf(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotAVog)
 }
 
-// TestParseTimeoutKillsWorkerAndPoolRecovers guards against a slow/malicious
-// PDF tying up a PDFium worker forever: with the deadline forced well below
-// what parsing takes, Parse must give up with ErrParseTimeout, and the pool
-// must still be able to serve a normal request afterwards (i.e. the stalled
-// worker was killed and replaced, not left wedged).
 func TestParseTimeoutKillsWorkerAndPoolRecovers(t *testing.T) {
 	original := sharedParser.parseTimeout
 	t.Cleanup(func() { sharedParser.parseTimeout = original })
