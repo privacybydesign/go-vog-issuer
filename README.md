@@ -4,7 +4,7 @@ The Go VOG Issuer turns a **Verklaring Omtrent het Gedrag** (VOG, the Dutch cert
 
 ## How it works
 
-1. **Upload.** The holder uploads the digital VOG PDF received from Justis. The backend sends it to the GAAV validation service of the Justitiële Informatiedienst ([validatie.nl](https://validatie.nl)) which confirms that the PDF is authentic and unaltered. Only then is the PDF parsed: reference number, issue date, name, date and place of birth, purpose and the screening profile codes are read from the (AES encrypted) PDF with PDFium running in WebAssembly, so the backend is pure Go.
+1. **Upload.** The holder uploads the digital VOG PDF received from Justis. The upload page carries a [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/) bot check; the backend redeems the single-use Turnstile token at Cloudflare before it does anything with the file. It then sends the PDF to the GAAV validation service of the Justitiële Informatiedienst ([validatie.nl](https://validatie.nl)) which confirms that the PDF is authentic and unaltered. Only then is the PDF parsed: reference number, issue date, name, date and place of birth, purpose and the screening profile codes are read from the (AES encrypted) PDF with PDFium running in WebAssembly, so the backend is pure Go.
 2. **Identity.** The holder proves who they are in the Yivi app. The disclosure request offers four alternatives, the app lets the user pick: BRP personal data (`gemeente.personalData`), passport, ID card or driving licence. The backend runs this session itself so it can read the result.
 3. **Match.** The disclosed name and date of birth are compared with the person named on the VOG (case- and diacritic-insensitive, prefix with or without, first given name suffices). No match, no credential; the holder may disclose again with another credential.
 4. **Issue.** On a match the backend signs an IRMA issuance request for the VOG credential. The frontend shows the result of the identity check, explains that the VOG can now be added to the Yivi app as a card and hands the request to the app when the holder asks for it.
@@ -119,6 +119,11 @@ Create `local-secrets/config.json` (the folder is git-ignored); `config.sample.j
     "max_attempts": 3,
     "retry_delay_seconds": 1
   },
+  "turnstile": {
+    "site_key": "0x4AAAAAAEskYIZQOLbu1QvE",
+    "secret": "",
+    "hostnames": ["localhost", "127.0.0.1"]
+  },
   "max_upload_size_bytes": 5242880,
   "storage_type": "memory",
   "log_level": "info"
@@ -128,8 +133,23 @@ Create `local-secrets/config.json` (the folder is git-ignored); `config.sample.j
 - `jwt_private_key_path` points to the RSA private key (PEM) that signs the session requests. The IRMA server must know the matching public key under the requestor name `issuer_id`, and that requestor must be allowed to **issue** the VOG credential and to **verify** the four identity credentials. The backend starts the disclosure session itself, so `irma_server_url` must be reachable from the backend as well as from the Yivi app.
 - `identity_credentials` are the full credential type identifiers of the identity credentials; their attribute names (`firstnames`/`prefix`/`familyname`/`dateofbirth` for BRP, `firstName`/`lastName`/`dateOfBirth` for the documents) are fixed by the scheme. `passport`, `id_card` and `driving_licence` are required. `brp` is optional: leave the key out and the disclosure request only offers the three documents, and a disclosed BRP credential is not accepted as an identity.
 - `validation` configures the validatie.nl client: `timeout_seconds` bounds a single call (default 30), `max_attempts` is the total number of calls made while the service is unavailable (default 3, `1` disables retrying) and `retry_delay_seconds` is the pause before the first retry, doubling on every next one (default 1). See [Retrying when validatie.nl is unavailable](#retrying-when-validatienl-is-unavailable).
+- `turnstile` configures the Cloudflare Turnstile bot check on the upload endpoint, see [Bot protection with Cloudflare Turnstile](#bot-protection-with-cloudflare-turnstile). The check is on as soon as a secret is available, either in `turnstile.secret` or in the `TURNSTILE_SECRET` environment variable (the variable wins). Without a secret the backend logs a warning at startup and accepts uploads without a token.
 - `storage_type` is `memory`, `redis` (with `redis_config`) or `redis_sentinel` (with `redis_sentinel_config`). Use Redis when running more than one instance.
 - `sd_jwt_batch_size` is the number of SD-JWT VCs issued alongside the IRMA credential.
+
+### Bot protection with Cloudflare Turnstile
+
+Every upload costs a call to validatie.nl and a PDF parse, so the upload endpoint is protected with [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/). The flow is the canonical one: the widget on the upload page produces a single-use token, the frontend sends it along with the PDF as the multipart field `cf-turnstile-response`, and the backend redeems it at Cloudflare's siteverify endpoint before it looks at the file. The other endpoints need a `session_id` that only a successful upload hands out, so gating the upload gates the whole flow.
+
+The backend accepts a token only when siteverify reports `success`, the action `vog-upload` (the action the frontend renders the widget with) and a hostname from `turnstile.hostnames`. Anything else, including an unreachable siteverify, is answered with `403 error:bot-check-failed` and the frontend asks the user to reload and try again. Tokens are single-use, so the frontend fetches a fresh token for every attempt, also for the automatic retries while validatie.nl is unavailable.
+
+| Key | Meaning |
+|-----|---------|
+| `turnstile.site_key` | Sitekey of the widget. Public; the frontend fetches it from `GET /api/config`. Empty in that response means the check is off and the frontend uploads without a token. |
+| `turnstile.secret` | Secret of the widget. Leave empty and set `TURNSTILE_SECRET` in the environment when the platform can inject secrets; otherwise put it in `local-secrets/config.json`, which is git-ignored. Never commit it. |
+| `turnstile.hostnames` | Hostnames on which the frontend is served. Siteverify reports the hostname of the page that solved the challenge and the token is rejected unless it is listed. A production configuration must not list `localhost` or `127.0.0.1`. |
+
+The widget is created in the Cloudflare dashboard (Turnstile, managed mode) with the same hostnames; the sitekey and secret come from there. During development the Vite dev server on `localhost:3000` proxies `/api` to the backend, so `localhost` in both the widget and `turnstile.hostnames` covers it.
 
 ### Running the application
 
@@ -179,7 +199,8 @@ go generate ./...
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /api/vog/upload` (multipart `file`) | Validate with validatie.nl and parse the VOG; returns a `session_id`, the validation outcome and the parsed document. |
+| `GET /api/config` | Frontend settings: the Turnstile sitekey (empty when the bot check is off). |
+| `POST /api/vog/upload` (multipart `file`, `cf-turnstile-response`) | Redeem the Turnstile token, validate with validatie.nl and parse the VOG; returns a `session_id`, the validation outcome and the parsed document. `403 error:bot-check-failed` when the token is missing, used or not minted for this site. |
 | `POST /api/vog/start-disclosure` `{session_id}` | Start the identity disclosure; returns the IRMA session package (`sessionPtr`, `frontendRequest`) for yivi-frontend. |
 | `POST /api/vog/issue` `{session_id}` | Fetch the disclosure result, compare it with the VOG and return the signed issuance JWT plus `irma_server_url`. `403 error:identity-mismatch` explains which of date of birth, surname and given names differed. |
 | `GET /api/health` | Health check. |

@@ -2,9 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../AppContext';
-import { ApiError, RetryProgress, UploadCancelled, isValidationServiceUnavailable, uploadVogWithRetry } from '../api';
+import {
+  ApiError,
+  RetryProgress,
+  TURNSTILE_ACTION_UPLOAD,
+  UploadCancelled,
+  fetchConfig,
+  isValidationServiceUnavailable,
+  uploadVogWithRetry,
+} from '../api';
 import { checkPdfFile, fileCheckErrorKey, formatBytes, MAX_UPLOAD_BYTES } from '../fileCheck';
+import { TurnstileError } from '../turnstile';
 import FileDropzone from '../components/FileDropzone';
+import Turnstile, { TurnstileHandle } from '../components/Turnstile';
 import DocumentSummary from './DocumentSummary';
 
 /** A pending automatic retry: which attempt is next and when it starts. */
@@ -24,6 +34,24 @@ export default function UploadPage() {
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [errorDetail, setErrorDetail] = useState<string | undefined>();
   const abortRef = useRef<AbortController | undefined>(undefined);
+  // Cloudflare Turnstile: the backend says whether the check is on and with
+  // which sitekey. The widget itself lives in the Turnstile component; this
+  // page only asks it for a token per upload attempt.
+  const [turnstileSiteKey, setTurnstileSiteKey] = useState<string | undefined>();
+  const [awaitingToken, setAwaitingToken] = useState(false);
+  const turnstileRef = useRef<TurnstileHandle>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchConfig().then((config) => {
+      if (!cancelled) {
+        setTurnstileSiteKey(config.turnstile_site_key);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Tick while a retry is pending so the countdown stays current.
   useEffect(() => {
@@ -71,9 +99,21 @@ export default function UploadPage() {
     setRetry(undefined);
     setErrorMessage(undefined);
     setErrorDetail(undefined);
+    // With the bot check on, every attempt needs its own single-use token.
+    const getToken = turnstileSiteKey
+      ? async () => {
+          setAwaitingToken(true);
+          try {
+            return await turnstileRef.current!.getToken();
+          } finally {
+            setAwaitingToken(false);
+          }
+        }
+      : undefined;
     try {
       const result = await uploadVogWithRetry(file, {
         signal: controller.signal,
+        getToken,
         onRetry: (progress) => setRetry({ ...progress, retryAt: Date.now() + progress.delayMs }),
       });
       setUpload(result);
@@ -81,7 +121,9 @@ export default function UploadPage() {
       if (err instanceof UploadCancelled) {
         return;
       }
-      if (isValidationServiceUnavailable(err)) {
+      if (err instanceof TurnstileError) {
+        setErrorMessage(t('error_bot_check_unavailable'));
+      } else if (isValidationServiceUnavailable(err)) {
         setErrorMessage(t('upload_retry_failed'));
         if (err.body.validation) {
           setErrorDetail(t(`validation_${err.body.validation.key}`));
@@ -173,7 +215,7 @@ export default function UploadPage() {
           {busy && !retry && (
             <div id="status-bar" className="alert alert-info" role="status">
               <div className="status-container">
-                <div id="status">{t('upload_busy')}</div>
+                <div id="status">{awaitingToken ? t('upload_bot_check_waiting') : t('upload_busy')}</div>
               </div>
             </div>
           )}
@@ -198,6 +240,7 @@ export default function UploadPage() {
           <p>{t('upload_validation_explanation')}</p>
           <label htmlFor="vog-file">{t('upload_file_label', { max: formatBytes(MAX_UPLOAD_BYTES) })}</label>
           <FileDropzone file={file} error={fileError} disabled={busy} onSelect={select} />
+          {turnstileSiteKey && <Turnstile ref={turnstileRef} siteKey={turnstileSiteKey} action={TURNSTILE_ACTION_UPLOAD} />}
         </div>
       </main>
       <footer>
