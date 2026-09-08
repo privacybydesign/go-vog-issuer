@@ -116,6 +116,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
+                    "429": {
+                        "description": "rate limit exceeded for this client",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -170,6 +176,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "unknown or expired session",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "rate limit exceeded for this client",
                         "schema": {
                             "$ref": "#/definitions/models.ErrorResponse"
                         }
@@ -248,6 +260,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/models.ErrorResponse"
                         }
                     },
+                    "429": {
+                        "description": "rate limit exceeded for this client",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -255,7 +273,7 @@ const docTemplate = `{
                         }
                     },
                     "503": {
-                        "description": "the validation service is unavailable; the backend already retried the call, the client may try again later",
+                        "description": "the validation service is unavailable, or parsing the PDF timed out; the client may try again later",
                         "schema": {
                             "$ref": "#/definitions/models.ErrorResponse"
                         }

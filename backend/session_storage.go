@@ -125,11 +125,19 @@ func (s *RedisSessionStorage) key(sessionId string) string {
 }
 
 func (s *RedisSessionStorage) Store(session *Session) error {
+	// The TTL counts down from CreatedAt, not from now: otherwise every
+	// retry (a failed identity match resets the disclosure, a poll restarts
+	// it) would push the key's expiry back out to a full SessionLifetime,
+	// letting a session outlive the documented one hour limit indefinitely.
+	ttl := SessionLifetime - time.Since(session.CreatedAt)
+	if ttl <= 0 {
+		return fmt.Errorf("session %s has already expired", session.Id)
+	}
 	payload, err := json.Marshal(session)
 	if err != nil {
 		return fmt.Errorf("failed to marshal session: %w", err)
 	}
-	return s.client.Set(context.Background(), s.key(session.Id), payload, SessionLifetime).Err()
+	return s.client.Set(context.Background(), s.key(session.Id), payload, ttl).Err()
 }
 
 func (s *RedisSessionStorage) Retrieve(sessionId string) (*Session, error) {

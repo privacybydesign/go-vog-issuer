@@ -187,23 +187,23 @@ func TestCloudflareTurnstileVerify(t *testing.T) {
 	})
 }
 
-func TestClientIP(t *testing.T) {
+func TestTurnstileClientIP(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/api/vog/upload", nil)
 	r.RemoteAddr = "192.0.2.10:54321"
-	require.Equal(t, "192.0.2.10", clientIP(r))
+	require.Equal(t, "192.0.2.10", turnstileClientIP(r))
 
 	r.Header.Set("X-Forwarded-For", "203.0.113.7, 10.0.0.1")
-	require.Equal(t, "203.0.113.7", clientIP(r))
+	require.Equal(t, "203.0.113.7", turnstileClientIP(r))
 
 	r.Header.Set("X-Forwarded-For", "not an ip")
-	require.Equal(t, "192.0.2.10", clientIP(r))
+	require.Equal(t, "192.0.2.10", turnstileClientIP(r))
 
 	r.Header.Del("X-Forwarded-For")
 	r.RemoteAddr = "[2001:db8::1]:443"
-	require.Equal(t, "2001:db8::1", clientIP(r))
+	require.Equal(t, "2001:db8::1", turnstileClientIP(r))
 
 	r.RemoteAddr = "garbage"
-	require.Equal(t, "", clientIP(r))
+	require.Equal(t, "", turnstileClientIP(r))
 }
 
 // fakeTurnstile accepts exactly one token value and records what it saw.
