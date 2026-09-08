@@ -46,6 +46,7 @@ const (
 	ErrorDisclosureInvalid = "error:disclosure-invalid"
 	ErrorIdentityMismatch  = "error:identity-mismatch"
 	ErrorIrmaServer        = "error:irma-server"
+	ErrorBotCheckFailed    = "error:bot-check-failed"
 )
 
 const DefaultMaxUploadSize = 5 << 20 // 5 MiB
@@ -73,6 +74,10 @@ type ServerState struct {
 	irmaClient          IrmaClient
 	identityCredentials IdentityCredentials
 	maxUploadSize       int64
+	// Cloudflare Turnstile check on the upload endpoint; nil disables it.
+	turnstile TurnstileVerifier
+	// Sitekey handed to the frontend so it can render the widget.
+	turnstileSiteKey string
 }
 
 type SpaHandler struct {
@@ -153,6 +158,9 @@ func NewServer(state *ServerState, config ServerConfig) (*Server, error) {
 	limiter := newIPRateLimiter(config.RateLimit)
 
 	router.HandleFunc("/api/health", securityHeaders(csp, handleHealth)).Methods(http.MethodGet)
+	router.HandleFunc("/api/config", securityHeaders(csp, func(w http.ResponseWriter, r *http.Request) {
+		handleConfig(state, w, r)
+	})).Methods(http.MethodGet)
 
 	router.HandleFunc("/api/vog/upload", securityHeaders(csp, rateLimited(limiter, "vog/upload", func(w http.ResponseWriter, r *http.Request) {
 		handleUpload(state, w, r)
@@ -206,15 +214,34 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleConfig tells the frontend how the service is configured
+// @Summary Frontend configuration
+// @Description Returns the settings the frontend needs: the Cloudflare Turnstile sitekey to render the bot check on the upload page. The sitekey is empty when the Turnstile check is disabled; the frontend then uploads without a token.
+// @Tags Config
+// @Produce json
+// @Success 200 {object} models.ConfigResponse
+// @Router /config [get]
+func handleConfig(state *ServerState, w http.ResponseWriter, r *http.Request) {
+	response := models.ConfigResponse{}
+	if state.turnstile != nil {
+		response.TurnstileSiteKey = state.turnstileSiteKey
+	}
+	if err := writeJSON(w, http.StatusOK, response); err != nil {
+		slog.Error("failed to write config response", "error", err)
+	}
+}
+
 // handleUpload validates and parses an uploaded VOG
 // @Summary Upload and validate a VOG
-// @Description Accepts a VOG PDF (multipart form field "file"), checks its authenticity and integrity with the GAAV validation service of the Justitiële Informatiedienst (https://validatie.nl) and reads the printed data (name, date of birth, purpose and screening profile codes). On success a session is created that must be used to disclose the holder's identity and to obtain the credential. The session expires after one hour.
+// @Description Accepts a VOG PDF (multipart form field "file"), checks its authenticity and integrity with the GAAV validation service of the Justitiële Informatiedienst (https://validatie.nl) and reads the printed data (name, date of birth, purpose and screening profile codes). On success a session is created that must be used to disclose the holder's identity and to obtain the credential. The session expires after one hour. When the Cloudflare Turnstile check is enabled (see /config), the request must also carry a fresh Turnstile token in the multipart field "cf-turnstile-response"; the token is redeemed at Cloudflare before the PDF is looked at and can be used only once.
 // @Tags VOG
 // @Accept multipart/form-data
 // @Produce json
 // @Param file formData file true "The VOG PDF as received from Justis"
+// @Param cf-turnstile-response formData string false "Cloudflare Turnstile token from the widget on the upload page (required when the check is enabled)"
 // @Success 200 {object} models.UploadResponse
 // @Failure 400 {object} models.ErrorResponse "file missing, not a PDF or not a VOG"
+// @Failure 403 {object} models.ErrorResponse "the Turnstile token is missing, invalid, already used or not minted for this site"
 // @Failure 413 {object} models.ErrorResponse "file too large"
 // @Failure 422 {object} models.ErrorResponse "the validation service rejected the document (tampered, unknown or invalid signature)"
 // @Failure 429 {object} models.ErrorResponse "rate limit exceeded for this client"
@@ -245,6 +272,16 @@ func handleUpload(state *ServerState, w http.ResponseWriter, r *http.Request) {
 			_ = r.MultipartForm.RemoveAll()
 		}
 	}()
+
+	// Bot check first: the token is redeemed at Cloudflare before any work
+	// is spent on the PDF. Tokens are single-use, so a replayed request is
+	// refused here as well.
+	if state.turnstile != nil {
+		if err := state.turnstile.Verify(r.Context(), r.FormValue(TurnstileTokenField), turnstileClientIP(r)); err != nil {
+			respondWithErr(w, http.StatusForbidden, ErrorBotCheckFailed, "the bot check (Cloudflare Turnstile) did not pass", err, "endpoint", endpoint)
+			return
+		}
+	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {

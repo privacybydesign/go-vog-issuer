@@ -39,6 +39,10 @@ type Config struct {
 	// The identity credentials the holder may disclose to prove who they are.
 	IdentityCredentials IdentityCredentials `json:"identity_credentials"`
 	Validation          ValidationConfig    `json:"validation"`
+	// Cloudflare Turnstile bot check on the upload endpoint. Enabled when a
+	// secret is configured here or in the TURNSTILE_SECRET environment
+	// variable; see TurnstileConfig.
+	Turnstile TurnstileConfig `json:"turnstile"`
 	// Maximum accepted size of an uploaded PDF in bytes. Defaults to 5 MiB.
 	MaxUploadSizeBytes  int64                     `json:"max_upload_size_bytes"`
 	StorageType         string                    `json:"storage_type"`
@@ -139,6 +143,19 @@ func main() {
 	validator := vog.NewGaavClient(validationURL, time.Duration(config.Validation.TimeoutSeconds)*time.Second, retry)
 	slog.Info("using validation service", "url", validationURL, "timeout", validator.Timeout(), "max_attempts", validator.Retry().MaxAttempts, "retry_delay", validator.Retry().Delay)
 
+	var turnstile TurnstileVerifier
+	if config.Turnstile.Enabled() {
+		cf, err := NewCloudflareTurnstile(config.Turnstile)
+		if err != nil {
+			slog.Error("invalid turnstile configuration", "error", err)
+			os.Exit(1)
+		}
+		turnstile = cf
+		slog.Info("Cloudflare Turnstile check enabled on the upload endpoint", "site_key", config.Turnstile.SiteKey, "action", TurnstileActionUpload, "hostnames", cf.Hostnames())
+	} else {
+		slog.Warn("Cloudflare Turnstile check disabled: no secret configured, uploads are not protected against bots")
+	}
+
 	serverState := ServerState{
 		irmaServerURL:       config.IrmaServerUrl,
 		sessionStorage:      sessionStorage,
@@ -148,6 +165,8 @@ func main() {
 		irmaClient:          NewHttpIrmaClient(config.IrmaServerUrl, 15*time.Second),
 		identityCredentials: config.IdentityCredentials,
 		maxUploadSize:       config.MaxUploadSizeBytes,
+		turnstile:           turnstile,
+		turnstileSiteKey:    config.Turnstile.SiteKey,
 	}
 
 	server, err := NewServer(&serverState, config.ServerConfig)

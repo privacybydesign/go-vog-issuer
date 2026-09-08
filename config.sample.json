@@ -30,6 +30,11 @@
     "max_attempts": 3,
     "retry_delay_seconds": 1
   },
+  "turnstile": {
+    "site_key": "0x4AAAAAAEskYIZQOLbu1QvE",
+    "secret": "",
+    "hostnames": ["localhost", "127.0.0.1"]
+  },
   "max_upload_size_bytes": 5242880,
   "storage_type": "memory",
   "redis_config": {

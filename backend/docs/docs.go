@@ -21,6 +21,26 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/config": {
+            "get": {
+                "description": "Returns the settings the frontend needs: the Cloudflare Turnstile sitekey to render the bot check on the upload page. The sitekey is empty when the Turnstile check is disabled; the frontend then uploads without a token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Config"
+                ],
+                "summary": "Frontend configuration",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.ConfigResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "description": "Returns the health status of the API service",
@@ -183,7 +203,7 @@ const docTemplate = `{
         },
         "/vog/upload": {
             "post": {
-                "description": "Accepts a VOG PDF (multipart form field \"file\"), checks its authenticity and integrity with the GAAV validation service of the Justitiële Informatiedienst (https://validatie.nl) and reads the printed data (name, date of birth, purpose and screening profile codes). On success a session is created that must be used to disclose the holder's identity and to obtain the credential. The session expires after one hour.",
+                "description": "Accepts a VOG PDF (multipart form field \"file\"), checks its authenticity and integrity with the GAAV validation service of the Justitiële Informatiedienst (https://validatie.nl) and reads the printed data (name, date of birth, purpose and screening profile codes). On success a session is created that must be used to disclose the holder's identity and to obtain the credential. The session expires after one hour. When the Cloudflare Turnstile check is enabled (see /config), the request must also carry a fresh Turnstile token in the multipart field \"cf-turnstile-response\"; the token is redeemed at Cloudflare before the PDF is looked at and can be used only once.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -201,6 +221,12 @@ const docTemplate = `{
                         "name": "file",
                         "in": "formData",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cloudflare Turnstile token from the widget on the upload page (required when the check is enabled)",
+                        "name": "cf-turnstile-response",
+                        "in": "formData"
                     }
                 ],
                 "responses": {
@@ -212,6 +238,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "file missing, not a PDF or not a VOG",
+                        "schema": {
+                            "$ref": "#/definitions/models.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "the Turnstile token is missing, invalid, already used or not minted for this site",
                         "schema": {
                             "$ref": "#/definitions/models.ErrorResponse"
                         }
@@ -251,6 +283,16 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.ConfigResponse": {
+            "type": "object",
+            "properties": {
+                "turnstile_site_key": {
+                    "description": "Sitekey of the Cloudflare Turnstile widget to render on the upload page. Empty when the bot check is disabled.",
+                    "type": "string",
+                    "example": "0x4AAAAAAEskYIZQOLbu1QvE"
+                }
+            }
+        },
         "models.DisclosureSessionResponse": {
             "type": "object",
             "properties": {
