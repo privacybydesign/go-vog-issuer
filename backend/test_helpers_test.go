@@ -130,6 +130,9 @@ type testDeps struct {
 	parser    fakeParser
 	jwt       *fakeJwtCreator
 	irma      *fakeIrmaClient
+	// Turnstile check; nil (the default) leaves the upload endpoint open.
+	turnstile        TurnstileVerifier
+	turnstileSiteKey string
 }
 
 func defaultDeps() *testDeps {
@@ -154,6 +157,8 @@ func startTestServer(t *testing.T, deps *testDeps) *Server {
 		irmaClient:          deps.irma,
 		identityCredentials: testIdentityCredentials,
 		maxUploadSize:       1 << 20,
+		turnstile:           deps.turnstile,
+		turnstileSiteKey:    deps.turnstileSiteKey,
 	}
 
 	srv, err := NewServer(state, testConfig)

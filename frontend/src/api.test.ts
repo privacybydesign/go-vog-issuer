@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ApiError,
   RetryProgress,
+  TURNSTILE_TOKEN_FIELD,
   UploadCancelled,
   VALIDATION_RETRY_DELAYS_MS,
   errorKeyToTranslationKey,
+  fetchConfig,
   isValidationServiceUnavailable,
   uploadVogWithRetry,
 } from './api';
@@ -75,7 +77,7 @@ describe('uploadVogWithRetry', () => {
 
   /** Queues fetch answers: an ApiError becomes an error response, anything else a 200. */
   function fetchAnswering(...answers: unknown[]) {
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
       const answer = answers.shift();
       if (answer instanceof ApiError) {
         return new Response(JSON.stringify(answer.body), { status: answer.status });
@@ -128,6 +130,35 @@ describe('uploadVogWithRetry', () => {
     ]);
   });
 
+  it('uploads without a Turnstile token when the check is off', async () => {
+    const fetchMock = fetchAnswering(ok);
+    await uploadVogWithRetry(file, { wait: instantWait().wait });
+
+    const body = fetchMock.mock.calls[0][1]?.body as FormData;
+    expect(body.has(TURNSTILE_TOKEN_FIELD)).toBe(false);
+    expect(body.has('file')).toBe(true);
+  });
+
+  it('fetches a fresh Turnstile token for every attempt', async () => {
+    const fetchMock = fetchAnswering(unreachable(), unreachable(), ok);
+    let n = 0;
+    const getToken = vi.fn(async () => `token-${++n}`);
+
+    await uploadVogWithRetry(file, { wait: instantWait().wait, getToken });
+
+    expect(getToken).toHaveBeenCalledTimes(3);
+    const tokens = fetchMock.mock.calls.map((call) => (call[1]?.body as FormData).get(TURNSTILE_TOKEN_FIELD));
+    expect(tokens).toEqual(['token-1', 'token-2', 'token-3']);
+  });
+
+  it('passes a Turnstile failure on without uploading', async () => {
+    const fetchMock = fetchAnswering(ok);
+    const failure = new Error('widget failed');
+
+    await expect(uploadVogWithRetry(file, { wait: instantWait().wait, getToken: () => Promise.reject(failure) })).rejects.toBe(failure);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('gives up after the last delay and throws the last error', async () => {
     const fetchMock = fetchAnswering(unreachable(), unreachable(), unreachable(), retryableCode());
     const { wait, waits } = instantWait();
@@ -174,5 +205,27 @@ describe('uploadVogWithRetry', () => {
     );
 
     await expect(uploadVogWithRetry(file, { signal: controller.signal })).rejects.toBeInstanceOf(UploadCancelled);
+  });
+});
+
+describe('fetchConfig', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns the Turnstile sitekey', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ turnstile_site_key: '0x4AAA' }), { status: 200 })));
+    await expect(fetchConfig()).resolves.toEqual({ turnstile_site_key: '0x4AAA' });
+  });
+
+  it('treats an unreachable or broken endpoint as "no Turnstile"', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 500 })));
+    await expect(fetchConfig()).resolves.toEqual({ turnstile_site_key: '' });
+
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('network'); }));
+    await expect(fetchConfig()).resolves.toEqual({ turnstile_site_key: '' });
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ turnstile_site_key: 42 }), { status: 200 })));
+    await expect(fetchConfig()).resolves.toEqual({ turnstile_site_key: '' });
   });
 });

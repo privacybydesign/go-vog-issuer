@@ -1,4 +1,12 @@
-import { ErrorResponse, UploadResponse } from './types';
+import { ErrorResponse, FrontendConfig, UploadResponse } from './types';
+
+/**
+ * Multipart field that carries the Cloudflare Turnstile token, and the action
+ * the widget is rendered with. Both must match what the backend expects (see
+ * backend/turnstile.go).
+ */
+export const TURNSTILE_TOKEN_FIELD = 'cf-turnstile-response';
+export const TURNSTILE_ACTION_UPLOAD = 'vog-upload';
 
 /**
  * ApiError carries the structured error body of the backend so pages can
@@ -64,8 +72,29 @@ async function parseError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, body);
 }
 
-export async function uploadVog(file: File, signal?: AbortSignal): Promise<Response> {
+/**
+ * Fetches the frontend settings. A failure is reported as "no Turnstile":
+ * the upload then goes out without a token and the backend answers with
+ * error:bot-check-failed if it does require one.
+ */
+export async function fetchConfig(): Promise<FrontendConfig> {
+  try {
+    const response = await fetch('/api/config');
+    if (!response.ok) {
+      return { turnstile_site_key: '' };
+    }
+    const parsed = await response.json();
+    return { turnstile_site_key: typeof parsed?.turnstile_site_key === 'string' ? parsed.turnstile_site_key : '' };
+  } catch {
+    return { turnstile_site_key: '' };
+  }
+}
+
+export async function uploadVog(file: File, signal?: AbortSignal, turnstileToken?: string): Promise<Response> {
   const form = new FormData();
+  if (turnstileToken) {
+    form.append(TURNSTILE_TOKEN_FIELD, turnstileToken);
+  }
   form.append('file', file, file.name);
   const response = await fetch('/api/vog/upload', { method: 'POST', body: form, signal });
   if (!response.ok) {
@@ -97,6 +126,13 @@ export interface RetryOptions {
   delaysMs?: number[];
   /** Called right before every pause, so the UI can announce the retry. */
   onRetry?: (progress: RetryProgress) => void;
+  /**
+   * Supplies the Cloudflare Turnstile token for an attempt. Tokens are
+   * single-use, so it is called before every attempt, retries included. An
+   * error it throws is passed on at once. Leave out when the bot check is
+   * disabled.
+   */
+  getToken?: () => Promise<string>;
   /** Replaceable for tests. */
   wait?: (ms: number, signal?: AbortSignal) => Promise<void>;
 }
@@ -114,8 +150,10 @@ export async function uploadVogWithRetry(file: File, options: RetryOptions = {})
 
   for (let attempt = 1; ; attempt++) {
     throwIfCancelled(options.signal);
+    const token = options.getToken ? await options.getToken() : undefined;
+    throwIfCancelled(options.signal);
     try {
-      const response = await uploadVog(file, options.signal);
+      const response = await uploadVog(file, options.signal, token);
       return (await response.json()) as UploadResponse;
     } catch (err) {
       // An aborted fetch rejects with an AbortError; report it as a cancellation.

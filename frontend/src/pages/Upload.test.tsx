@@ -3,15 +3,23 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter } from 'react-router-dom';
 import '../i18n';
 import { AppProvider } from '../AppContext';
-import { ApiError, RetryOptions, UploadCancelled, uploadVogWithRetry } from '../api';
+import { ApiError, RetryOptions, UploadCancelled, fetchConfig, uploadVogWithRetry } from '../api';
+import { TurnstileApi, TurnstileRenderOptions, loadTurnstile } from '../turnstile';
 import UploadPage from './Upload';
 
 vi.mock('../api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api')>();
-  return { ...actual, uploadVogWithRetry: vi.fn() };
+  return { ...actual, uploadVogWithRetry: vi.fn(), fetchConfig: vi.fn() };
+});
+
+vi.mock('../turnstile', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../turnstile')>();
+  return { ...actual, loadTurnstile: vi.fn() };
 });
 
 const uploadMock = vi.mocked(uploadVogWithRetry);
+const configMock = vi.mocked(fetchConfig);
+const loadTurnstileMock = vi.mocked(loadTurnstile);
 
 /** A controllable upload: the test decides when and how it ends. */
 function pendingUpload() {
@@ -56,6 +64,8 @@ async function renderAndSubmit() {
 describe('UploadPage while validatie.nl is unavailable', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
+    // Bot check off: the page uploads without a Turnstile token.
+    configMock.mockResolvedValue({ turnstile_site_key: '' });
   });
 
   afterEach(() => {
@@ -63,6 +73,14 @@ describe('UploadPage while validatie.nl is unavailable', () => {
     cleanup();
     vi.useRealTimers();
     uploadMock.mockReset();
+    configMock.mockReset();
+  });
+
+  it('does not render the bot check when the backend has it disabled', async () => {
+    pendingUpload();
+    await renderAndSubmit();
+    expect(screen.queryByTestId('turnstile-widget')).not.toBeInTheDocument();
+    expect(uploadMock.mock.calls[0][1]?.getToken).toBeUndefined();
   });
 
   it('explains that the check runs against validatie.nl', async () => {
@@ -163,5 +181,79 @@ describe('UploadPage while validatie.nl is unavailable', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('validatie.nl bevestigt dat de VOG echt en ongewijzigd is.');
+  });
+});
+
+describe('UploadPage with the Cloudflare Turnstile check on', () => {
+  let renderOptions: TurnstileRenderOptions | undefined;
+  const api: TurnstileApi = {
+    render: vi.fn((_container, opts) => {
+      renderOptions = opts;
+      return 'widget-1';
+    }),
+    reset: vi.fn(),
+    remove: vi.fn(),
+    getResponse: vi.fn(),
+  };
+
+  beforeEach(() => {
+    configMock.mockResolvedValue({ turnstile_site_key: '0x4AAAAAAEskYIZQOLbu1QvE' });
+    loadTurnstileMock.mockResolvedValue(api);
+  });
+
+  afterEach(() => {
+    cleanup();
+    uploadMock.mockReset();
+    configMock.mockReset();
+    loadTurnstileMock.mockReset();
+    vi.mocked(api.render).mockClear();
+    vi.mocked(api.reset).mockClear();
+    renderOptions = undefined;
+  });
+
+  it('renders the widget for the upload action and sends its token with the upload', async () => {
+    const upload = pendingUpload();
+    render(
+      <AppProvider>
+        <MemoryRouter initialEntries={['/nl/upload']}>
+          <UploadPage />
+        </MemoryRouter>
+      </AppProvider>,
+    );
+
+    await waitFor(() => expect(api.render).toHaveBeenCalledTimes(1));
+    expect(renderOptions).toMatchObject({ sitekey: '0x4AAAAAAEskYIZQOLbu1QvE', action: 'vog-upload', language: 'nl' });
+    expect(screen.getByText(/Cloudflare Turnstile/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/^VOG \(PDF/), { target: { files: [pdf] } });
+    const submit = screen.getByRole('button', { name: 'Uploaden en controleren' });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+    await waitFor(() => expect(uploadMock).toHaveBeenCalledTimes(1));
+
+    // The page hands the retry loop a token supplier; the widget has not
+    // answered yet, so the page reports that it is waiting for the bot check.
+    const getToken = upload.options.getToken!;
+    const pending = getToken();
+    expect(await screen.findByRole('status')).toHaveTextContent('botcontrole');
+
+    act(() => renderOptions!.callback?.('token-1'));
+    await expect(pending).resolves.toBe('token-1');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('validatie.nl'));
+
+    // A second attempt (retry) needs a new token: the widget is reset.
+    const second = getToken();
+    expect(api.reset).toHaveBeenCalledWith('widget-1');
+    act(() => renderOptions!.callback?.('token-2'));
+    await expect(second).resolves.toBe('token-2');
+  });
+
+  it('explains a failed bot check from the backend', async () => {
+    const upload = pendingUpload();
+    await renderAndSubmit();
+    upload.fail(new ApiError(403, { error: 'error:bot-check-failed' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('De botcontrole (Cloudflare Turnstile) kon niet worden bevestigd.');
   });
 });
