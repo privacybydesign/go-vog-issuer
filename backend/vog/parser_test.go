@@ -66,6 +66,22 @@ func TestParseRejectsNonPdf(t *testing.T) {
 	require.ErrorIs(t, err, ErrNotAVog)
 }
 
+func TestParseTimeoutKillsWorkerAndPoolRecovers(t *testing.T) {
+	original := sharedParser.parseTimeout
+	t.Cleanup(func() { sharedParser.parseTimeout = original })
+
+	pdf := readTestPdf(t, "vog-9999012026032500922.pdf")
+
+	sharedParser.parseTimeout = time.Nanosecond
+	_, err := sharedParser.Parse(pdf)
+	require.ErrorIs(t, err, ErrParseTimeout)
+
+	sharedParser.parseTimeout = original
+	doc, err := sharedParser.Parse(pdf)
+	require.NoError(t, err)
+	require.Equal(t, "9999012026032500922", doc.ReferenceNumber)
+}
+
 // word builds a Word at the given position with a nominal 10pt height.
 func word(text string, left, top float64) Word {
 	return Word{Text: text, Left: left, Top: top, Right: left + float64(len(text))*5, Bottom: top - 8}
