@@ -12,10 +12,21 @@ import (
 	"github.com/klippa-app/go-pdfium"
 	"github.com/klippa-app/go-pdfium/requests"
 	"github.com/klippa-app/go-pdfium/webassembly"
+	"github.com/tetratelabs/wazero"
 )
 
 // ErrNotAVog is returned when the PDF does not look like a VOG at all.
 var ErrNotAVog = errors.New("document is not a Verklaring Omtrent het Gedrag")
+
+// ErrParseTimeout is returned when extracting the text of a page takes
+// longer than DefaultParseTimeout, e.g. a crafted PDF designed to stall
+// PDFium. The worker handling it is killed rather than returned to the pool.
+var ErrParseTimeout = errors.New("pdf parsing timed out")
+
+// DefaultParseTimeout bounds how long a single PDF may occupy a PDFium
+// worker. Without it, a slow or malicious PDF could tie up the small,
+// fixed-size worker pool indefinitely.
+const DefaultParseTimeout = 20 * time.Second
 
 // Parser extracts the printed data from a VOG PDF.
 type Parser interface {
@@ -38,7 +49,8 @@ type Word struct {
 // VOG PDFs and exposes the position of every text run, which the layout based
 // extraction below relies on.
 type PdfiumParser struct {
-	pool pdfium.Pool
+	pool         pdfium.Pool
+	parseTimeout time.Duration
 }
 
 // NewPdfiumParser initialises the PDFium WebAssembly pool. Initialisation
@@ -49,11 +61,14 @@ func NewPdfiumParser() (*PdfiumParser, error) {
 		MinIdle:  1,
 		MaxIdle:  2,
 		MaxTotal: 4,
+		// Lets Kill() interrupt a worker that is stuck mid-call; see
+		// extractWords.
+		RuntimeConfig: wazero.NewRuntimeConfig().WithCloseOnContextDone(true),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialise pdfium: %w", err)
 	}
-	return &PdfiumParser{pool: pool}, nil
+	return &PdfiumParser{pool: pool, parseTimeout: DefaultParseTimeout}, nil
 }
 
 // Close releases the PDFium pool.
@@ -70,17 +85,45 @@ func (p *PdfiumParser) Parse(pdf []byte) (*Document, error) {
 	return ExtractDocument(words)
 }
 
+// extractWords runs the actual PDFium calls on a goroutine and races them
+// against parseTimeout. A crafted PDF that makes PDFium hang would otherwise
+// hold a worker (and the request goroutine) forever; on timeout the worker is
+// killed instead of returned, so the pool can replace it and keep serving
+// other requests.
 func (p *PdfiumParser) extractWords(pdf []byte) ([]Word, error) {
 	instance, err := p.pool.GetInstance(30 * time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pdfium instance: %w", err)
 	}
-	defer func() {
+
+	type result struct {
+		words []Word
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		words, err := readWords(instance, pdf)
+		done <- result{words, err}
+	}()
+
+	select {
+	case r := <-done:
 		if err := instance.Close(); err != nil {
 			slog.Warn("failed to return pdfium instance to pool", "error", err)
 		}
-	}()
+		return r.words, r.err
+	case <-time.After(p.parseTimeout):
+		slog.Warn("pdf parsing exceeded deadline, killing pdfium worker", "timeout", p.parseTimeout)
+		if err := instance.Kill(); err != nil {
+			slog.Warn("failed to kill stalled pdfium instance", "error", err)
+		}
+		return nil, ErrParseTimeout
+	}
+}
 
+// readWords does the actual PDFium calls to open the document and extract
+// the positioned text of its first page.
+func readWords(instance pdfium.Pdfium, pdf []byte) ([]Word, error) {
 	doc, err := instance.OpenDocument(&requests.OpenDocument{File: &pdf})
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to open pdf: %v", ErrNotAVog, err)
