@@ -12,7 +12,7 @@ import (
 func TestIPRateLimiterAllowsBurstThenBlocks(t *testing.T) {
 	limiter := newIPRateLimiter(RateLimitConfig{RequestsPerSecond: 1, Burst: 3})
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		require.True(t, limiter.allow("1.2.3.4"), "burst request %d should be allowed", i)
 	}
 	require.False(t, limiter.allow("1.2.3.4"), "request beyond the burst should be rate limited")

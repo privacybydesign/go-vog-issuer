@@ -365,7 +365,7 @@ func TestUploadRateLimited(t *testing.T) {
 	startTestServerWithConfig(t, defaultDeps(), config)
 	url := fmt.Sprintf(testHost, uploadEndpoint)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		resp, body, _ := postFile[models.UploadResponse](t, url, "file", "vog.pdf", fakePdf)
 		mustStatus(t, resp, http.StatusOK, body)
 	}

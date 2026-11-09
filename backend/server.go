@@ -62,7 +62,7 @@ type ServerConfig struct {
 	EnableApiDocs bool `json:"enable_api_docs,omitempty"`
 	// Bounds requests per client IP to the upload/start-disclosure/issue
 	// endpoints. Zero fields fall back to sane defaults.
-	RateLimit RateLimitConfig `json:"rate_limit,omitempty"`
+	RateLimit RateLimitConfig `json:"rate_limit"`
 }
 
 type ServerState struct {
