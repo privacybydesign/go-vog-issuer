@@ -200,11 +200,11 @@ func (t *CloudflareTurnstile) Verify(ctx context.Context, token, remoteIP string
 	return nil
 }
 
-// clientIP returns the address of the client for the siteverify remoteip
-// hint: the first X-Forwarded-For entry when a reverse proxy set one,
-// otherwise the peer address. The hint only helps Cloudflare's scoring; it is
-// not a security decision, so trusting the header is fine here.
-func clientIP(r *http.Request) string {
+// turnstileClientIP returns the address of the client for the siteverify
+// remoteip hint: the first X-Forwarded-For entry when a reverse proxy set
+// one, otherwise the peer address. The hint only helps Cloudflare's scoring;
+// it is not a security decision, so trusting the header is fine here.
+func turnstileClientIP(r *http.Request) string {
 	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
 		first, _, _ := strings.Cut(forwarded, ",")
 		if ip := strings.TrimSpace(first); net.ParseIP(ip) != nil {
