@@ -1,5 +1,5 @@
 # ---------- Frontend ----------
-FROM node:25-slim AS frontend-build
+FROM node:26-slim AS frontend-build
 WORKDIR /app/frontend
 COPY frontend .
 RUN npm ci
